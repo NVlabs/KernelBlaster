@@ -1,5 +1,21 @@
 # KernelBlaster
 
+## Paper
+
+Corresponding paper: [arXiv:2602.14293](http://arxiv.org/abs/2602.14293)
+
+**Authors**  
+[Kris Shengjun Dong](https://people.eecs.berkeley.edu/~chrisdong/), [Sahil Modi](https://www.linkedin.com/in/sahil-modi), [Dima Nikiforov](https://www.linkedin.com/in/dima-n/), [Sana Damani](https://sanadamani.com/), Edward Lin, [Siva Kumar Sastry Hari](https://sivahari.github.io/), [Christos Kozyrakis](https://web.stanford.edu/~kozyraki/)
+
+**Affiliation:** NVIDIA, University of California, Berkeley
+
+***Note:** This repository hosts an archival release of KernelBlaster. The initial commit in this repository does not reflect the original authorship; Most of the original work was contributed to by Kris Shengjun Dong during her 2025 summer internship at NVIDIA.
+
+## Contributors
+
+Main code contributors: Kris Shengjun Dong, Sahil Modi, and Dima Nikiforov.
+
+
 ## Project Intro
 
 <p><strong><span style="color:#0f766e;">Introducing KernelBlaster, a Memory-Augmented In-context Reinforcement Learning (MAIC-RL) framework</span></strong></p>
@@ -87,99 +103,3 @@ export RL_EXPERIMENT_NAME=${RL_EXPERIMENT_NAME:-kernelblaster}
 
 bash scripts/run_single_kernelblaster.sh
 ```
-
-By default, `scripts/run_single_kernelblaster.sh` launches a single KernelBench-CUDA RL optimization run with profiling enabled, starts the shared GPU server if needed, and writes outputs under `out/<dataset>/<precision>/<experiment>/`.
-
-Note that this example runs a single sample from the Level 1 KernelBench-CUDA dataset. This can be extended by passing additional problems via the `--problem-numbers` flag and the `--subset` flag. 
-
-```bash
-bash scripts/run_single_kernelblaster.sh --problem-numbers 1-10 --subset level2
-```
-
-### 4. What to expect
-
-- Input kernels come from `data/kernelbench-cuda/`.
-- The default script runs a Level 1 problem and performs RL-based CUDA optimization.
-- Trajectory artifacts, prompts, logs, and best outputs will be tracked in the run's `out` directory,
-- The best optimized kernel is written as `final_rl_cuda_perf.cu`.
-- The trained optimization database will be tracked in the run's `out` directory, as `optimization_database.json`.
-
-## Repo Overview
-
-```text
-KernelBlaster/
-|-- data/
-|   |-- kernelbench-cuda/
-|   |   |-- level1/
-|   |   |-- level2/
-|   |   `-- level3/
-|   `-- kernelblaster/
-|       |-- optimization_database.json
-|       |-- optimization_database_header.md
-|       `-- optimization_database_footer.md
-|-- docker/
-|   `-- Dockerfile
-|-- scripts/
-|   |-- run_single_kernelblaster.sh
-|   |-- run_RL.py
-|   |-- run_reprofile.py
-|   `-- start_gpu_server.py
-|-- src/kernelblaster/
-|   |-- agents/
-|   |-- config/
-|   |-- graph/
-|   |-- resources/
-|   |-- servers/
-|   `-- workflow/
-`-- utils/
-```
-
-### Key folders
-
-- `data/kernelbench-cuda/`: curated KernelBench-CUDA tasks, each with `init.cu` and `driver.cpp`.
-- `data/kernelblaster/`: optimization database assets and curated optimization knowledge.
-- `scripts/`: runnable entrypoints for single experiments, baselines, reprofiling, and server startup.
-- `src/kernelblaster/agents/`: the optimization agents, replay components, database logic, and profiling utilities.
-- `src/kernelblaster/graph/`: workflow graph nodes and shared state definitions.
-- `src/kernelblaster/servers/`: compiler and GPU server infrastructure used during optimization.
-- `src/kernelblaster/workflow/`: top-level workflow execution.
-
-
-### Persistent CUDA knowledge base
-
-<p align="center">
-  <img src="docs/figures/json.png" alt="Example state entry in the knowledge base" width="520" />
-</p>
-
-The knowledge base stores optimization experience in a structured state-centered form. Each state captures a bottleneck pattern, the primary performance issue, the secondary characteristics that identify it, and the optimizations that have been effective for similar kernels. This is what lets KernelBlaster reuse prior search experience instead of starting every task from scratch.
-
-### State groups and optimization choices
-
-<p align="center">
-  <img src="docs/figures/ODEa_small.png" alt="Knowledge base state groups and optimization performance" width="520" />
-</p>
-
-This figure illustrates how the knowledge base is organized around state families such as memory-limited, compute-bound, and hybrid states. Within each state, KernelBlaster tracks how different optimization techniques performed before, which helps it bias future search toward strategies with better expected payoff while still leaving room to explore.
-
-### Memory across tasks and rollouts
-
-<p align="center">
-  <img src="docs/figures/KB.png" alt="Memory-augmented search across tasks and time" width="720" />
-</p>
-
-This figure explains the memory-augmented part of MAIC-RL. Past rollouts from earlier tasks are stored in the knowledge base as actual measured performance. When KernelBlaster faces a new state in a future rollout, it uses those past results to steer the search toward higher-value regions of the optimization space and away from paths that previously underperformed.
-
-### Optimization diversity across states
-
-<p align="center">
-  <img src="docs/figures/opt_pie.png" alt="Distribution of optimization applications grouped by state" width="920" />
-</p>
-
-This figure shows the breadth of the optimization space covered by the framework. Different state groups call for different techniques, including vectorized memory access, tensor core utilization, work-per-thread tuning, shared-memory tiling, kernel fusion, occupancy tuning, and several smaller specialized transformations. That diversity is important because no single optimization strategy dominates across all CUDA kernels.
-
-Further, this Knowledge Base can be fiound in `KernelBlaster/data/kernelblaster/optimization_database.json` serve as a guide for general performance engineering agents or be used as labeled training data for model training. 
-## Contributors
-
-[Kris Shengjun Dong](https://people.eecs.berkeley.edu/~chrisdong/), [Sahil Modi](https://www.linkedin.com/in/sahil-modi), [Dima Nikiforov](https://www.linkedin.com/in/dima-n/), [Sana Damani](https://sanadamani.com/), Edward Lin, [Siva Kumar Sastry Hari](https://sivahari.github.io/), [Christos Kozyrakis](https://web.stanford.edu/~kozyraki/)
-
-Most of this work was done by Kris Shengjun Dong during her 2025 summer internship at NVIDIA.
