@@ -25,7 +25,7 @@ class KernelBenchCUDADataset(Dataset):
     Dataset over curated CUDA artifacts produced by KernelBlaster runs.
 
     Expected directory layout:
-      data/kernelbench-cuda/level1/<problem_name>/{driver.cpp,final_cuda.cu}
+      data/kernelbench-cuda/level1/<problem_name>/{driver.cpp,init.cu}
     """
 
     def __init__(
@@ -72,8 +72,8 @@ class KernelBenchCUDADataset(Dataset):
                     continue
 
                 driver_cpp = problem_dir / "driver.cpp"
-                final_cuda = problem_dir / "final_cuda.cu"
-                if not driver_cpp.exists() or not final_cuda.exists():
+                init_cu = problem_dir / "init.cu"
+                if not driver_cpp.exists() or not init_cu.exists():
                     # skip incomplete entries
                     continue
 
@@ -83,7 +83,9 @@ class KernelBenchCUDADataset(Dataset):
                     "problem_num": num,
                     "level": level,
                     "driver_cpp_fp": str(driver_cpp),
-                    "final_cuda_fp": str(final_cuda),
+                    "init_cuda_fp": str(init_cu),
+                    # Backwards compatibility for older callers that expect this key name.
+                    "final_cuda_fp": str(init_cu),
                 }
                 self.data.append(entry)
 

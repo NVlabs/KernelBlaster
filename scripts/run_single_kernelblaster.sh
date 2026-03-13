@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Timing Analysis Script for KernelBlaster
-# This script runs a single problem with detailed timing instrumentation
+# Runner Script for KernelBlaster
+# This script runs a single problem by default 
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,6 +34,67 @@ PRECISION="${PRECISION:-fp16}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-timing_analysis}"
 MODEL="${MODEL:-gpt-5-mini-2025-08-07}"
 GPU_TYPE="${GPU_TYPE:-L40S}"
+PROBLEM_NUMBERS_DEFAULT="1"
+SUBSET_DEFAULT="level1"
+
+# CLI overrides (keeps defaults if flags not provided)
+PROBLEM_NUMBERS="$PROBLEM_NUMBERS_DEFAULT"
+SUBSET="$SUBSET_DEFAULT"
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [--problem-numbers N] [--subset NAME]
+
+Options:
+  --problem-numbers N   Problem number(s) to run (default: ${PROBLEM_NUMBERS_DEFAULT})
+  --subset NAME         Dataset subset to run (default: ${SUBSET_DEFAULT})
+  -h, --help            Show this help message
+
+Examples:
+  $(basename "$0") --problem-numbers 1 --subset level1
+  $(basename "$0") --problem-numbers=5 --subset=level2
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --problem-numbers)
+            if [[ -z "${2:-}" || "$2" == --* ]]; then
+                echo "Error: --problem-numbers requires a value."
+                usage
+                exit 1
+            fi
+            PROBLEM_NUMBERS="$2"
+            shift 2
+            ;;
+        --problem-numbers=*)
+            PROBLEM_NUMBERS="${1#*=}"
+            shift 1
+            ;;
+        --subset)
+            if [[ -z "${2:-}" || "$2" == --* ]]; then
+                echo "Error: --subset requires a value."
+                usage
+                exit 1
+            fi
+            SUBSET="$2"
+            shift 2
+            ;;
+        --subset=*)
+            SUBSET="${1#*=}"
+            shift 1
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Error: Unknown argument: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
 
 echo "Configuration:"
 echo "  Dataset: $DATASET"
@@ -41,6 +102,8 @@ echo "  Precision: $PRECISION"
 echo "  Model: $MODEL"
 echo "  GPU: $GPU_TYPE"
 echo "  Experiment: $EXPERIMENT_NAME"
+echo "  Problem numbers: $PROBLEM_NUMBERS"
+echo "  Subset: $SUBSET"
 echo ""
 
 # Check if we're in the right directory
@@ -182,8 +245,8 @@ python scripts/run_RL.py \
   --rl-buffer-size 100 \
   --rl-update-frequency 3 \
   --concurrency 1 \
-  --problem-numbers 1 \
-  --subset level1 \
+  --problem-numbers "${PROBLEM_NUMBERS}" \
+  --subset "${SUBSET}" \
   --timeout 480 \
   --compiler-port 2011 \
   --gpu-server-url "$GPU_SERVER_URL"

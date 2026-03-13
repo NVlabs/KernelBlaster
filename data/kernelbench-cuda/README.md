@@ -4,7 +4,7 @@ This directory contains CUDA-based KernelBench problems included here for ease o
 
 Each problem directory contains:
 
-- `final_cuda.cu` — the CUDA kernel implementation to be optimized
+- `init.cu` — the CUDA kernel implementation to be optimized
 - `driver.cpp` — the C++ driver that builds, runs, and validates the kernel against a reference implementation
 
 ## Problem Levels

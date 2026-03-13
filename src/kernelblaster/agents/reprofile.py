@@ -156,9 +156,9 @@ class ReProfileAgent:
         Typical structures:
         - success_file: <base>/<problem>/rl_ncu/success_rl_optimization.cu
           test_code: <base>/<problem>/driver.cpp
-        - success_file: <base>/<problem>/final_cuda.cu
+        - success_file: <base>/<problem>/init.cu
           test_code: <base>/<problem>/driver.cpp
-        - success_file: <base>/<problem>/<subdir>/final_cuda.cu
+        - success_file: <base>/<problem>/<subdir>/init.cu
           test_code: <base>/<problem>/driver.cpp
         
         Also checks state.json for test_code_fp field.
