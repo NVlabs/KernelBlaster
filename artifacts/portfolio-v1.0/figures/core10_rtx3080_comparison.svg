@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="632" viewBox="0 0 1120 632">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>text{font-family:Arial,sans-serif;fill:#172033}.title{font-size:22px;font-weight:700}.label{font-size:13px}.small{font-size:11px;fill:#526079}</style>
+<text x="24" y="32" class="title">Core 10 — upstream, selected custom, and same-RTX-3080 PyTorch</text>
+<text x="24" y="55" class="small">Log2 ratio; right of 1.0 means the custom result is faster. Blue: upstream/candidate attempt. Green/orange: selected/PyTorch best.</text>
+<line x1="250.0" y1="66" x2="250.0" y2="597" stroke="#d7dce5" stroke-width="1"/>
+<text x="250.0" y="618" text-anchor="middle" class="small">0.25×</text>
+<line x1="380.0" y1="66" x2="380.0" y2="597" stroke="#d7dce5" stroke-width="1"/>
+<text x="380.0" y="618" text-anchor="middle" class="small">1×</text>
+<line x1="510.0" y1="66" x2="510.0" y2="597" stroke="#d7dce5" stroke-width="1"/>
+<text x="510.0" y="618" text-anchor="middle" class="small">4×</text>
+<line x1="640.0" y1="66" x2="640.0" y2="597" stroke="#d7dce5" stroke-width="1"/>
+<text x="640.0" y="618" text-anchor="middle" class="small">16×</text>
+<line x1="770.0" y1="66" x2="770.0" y2="597" stroke="#d7dce5" stroke-width="1"/>
+<text x="770.0" y="618" text-anchor="middle" class="small">64×</text>
+<line x1="900.0" y1="66" x2="900.0" y2="597" stroke="#d7dce5" stroke-width="1"/>
+<text x="900.0" y="618" text-anchor="middle" class="small">256×</text>
+<line x1="380.0" y1="66" x2="380.0" y2="597" stroke="#172033" stroke-width="2"/>
+<text x="24" y="100" class="label">004 Matrix-vector multiplication</text>
+<line x1="380.0" y1="92" x2="863.1" y2="92" stroke="#3578d4" stroke-width="8"/>
+<line x1="380.0" y1="110" x2="382.7" y2="110" stroke="#248a5b" stroke-width="8"/>
+<text x="920" y="96" class="small">candidate 172.632×</text>
+<text x="920" y="114" class="small">vs PyTorch 1.030×</text>
+<text x="24" y="148" class="label">007 Small-K matrix multiplication</text>
+<line x1="380.0" y1="140" x2="616.0" y2="140" stroke="#3578d4" stroke-width="8"/>
+<line x1="380.0" y1="158" x2="381.6" y2="158" stroke="#248a5b" stroke-width="8"/>
+<text x="920" y="144" class="small">candidate 12.393×</text>
+<text x="920" y="162" class="small">vs PyTorch 1.018×</text>
+<text x="24" y="196" class="label">019 ReLU</text>
+<line x1="380.0" y1="188" x2="381.6" y2="188" stroke="#3578d4" stroke-width="8"/>
+<line x1="377.0" y1="206" x2="380.0" y2="206" stroke="#d07428" stroke-width="8"/>
+<text x="920" y="192" class="small">candidate 1.018×</text>
+<text x="920" y="210" class="small">vs PyTorch 0.968×</text>
+<text x="24" y="244" class="label">023 Softmax</text>
+<line x1="380.0" y1="236" x2="380.8" y2="236" stroke="#3578d4" stroke-width="8"/>
+<line x1="358.5" y1="254" x2="380.0" y2="254" stroke="#d07428" stroke-width="8"/>
+<text x="920" y="240" class="small">candidate 1.008×</text>
+<text x="920" y="258" class="small">vs PyTorch 0.795×</text>
+<text x="24" y="292" class="label">026 GELU</text>
+<line x1="380.0" y1="284" x2="380.4" y2="284" stroke="#3578d4" stroke-width="8"/>
+<line x1="380.0" y1="302" x2="384.5" y2="302" stroke="#248a5b" stroke-width="8"/>
+<text x="920" y="288" class="small">candidate 1.004×</text>
+<text x="920" y="306" class="small">vs PyTorch 1.050×</text>
+<text x="24" y="340" class="label">036 RMSNorm</text>
+<line x1="380.0" y1="332" x2="751.9" y2="332" stroke="#3578d4" stroke-width="8"/>
+<line x1="380.0" y1="350" x2="433.0" y2="350" stroke="#248a5b" stroke-width="8"/>
+<text x="920" y="336" class="small">candidate 52.772×</text>
+<text x="920" y="354" class="small">vs PyTorch 1.760×</text>
+<text x="24" y="388" class="label">040 LayerNorm</text>
+<line x1="380.0" y1="380" x2="669.0" y2="380" stroke="#3578d4" stroke-width="8"/>
+<line x1="380.0" y1="398" x2="590.5" y2="398" stroke="#248a5b" stroke-width="8"/>
+<text x="920" y="384" class="small">candidate 21.796×</text>
+<text x="920" y="402" class="small">vs PyTorch 9.435×</text>
+<text x="24" y="436" class="label">047 Sum reduction</text>
+<line x1="380.0" y1="428" x2="415.7" y2="428" stroke="#3578d4" stroke-width="8"/>
+<line x1="327.6" y1="446" x2="380.0" y2="446" stroke="#d07428" stroke-width="8"/>
+<text x="920" y="432" class="small">candidate 1.464×</text>
+<text x="920" y="450" class="small">vs PyTorch 0.572×</text>
+<text x="24" y="484" class="label">088 MinGPT GELU</text>
+<line x1="380.0" y1="476" x2="380.1" y2="476" stroke="#3578d4" stroke-width="8"/>
+<line x1="380.0" y1="494" x2="380.0" y2="494" stroke="#d07428" stroke-width="8"/>
+<text x="920" y="480" class="small">candidate 1.001×</text>
+<text x="920" y="498" class="small">vs PyTorch 1.000×</text>
+<text x="24" y="532" class="label">095 Cross entropy loss</text>
+<line x1="380.0" y1="524" x2="694.9" y2="524" stroke="#3578d4" stroke-width="8"/>
+<line x1="250.0" y1="542" x2="380.0" y2="542" stroke="#d07428" stroke-width="8"/>
+<text x="920" y="528" class="small">candidate 28.732×</text>
+<text x="920" y="546" class="small">vs PyTorch 0.115×</text>
+</svg>

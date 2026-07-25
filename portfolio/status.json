@@ -1,0 +1,53 @@
+{
+  "schema_version": "2.0",
+  "updated_at": "2026-07-23",
+  "development_stage": "trusted_research_prototype_hardening",
+  "sources": {
+    "environment": "artifacts/portfolio-v1.0/environment/environment.json",
+    "comparison": "artifacts/portfolio-v1.0/results/core10_rtx3080_comparison.json",
+    "candidate_manifest": "portfolio/case_studies/core10/candidates.json",
+    "deep_case_results": "artifacts/portfolio-v1.0/results/deep_case_results.csv",
+    "validation_report_zh": "artifacts/portfolio-v1.0/reports/validation-report.zh-CN.md",
+    "comparison_report_zh": "artifacts/portfolio-v1.0/reports/core10-rtx3080-comparison.zh-CN.md",
+    "comparison_summary_en": "artifacts/portfolio-v1.0/reports/core10-rtx3080-summary.en.md",
+    "comparison_csv": "artifacts/portfolio-v1.0/results/core10_rtx3080_comparison.csv",
+    "comparison_figure": "artifacts/portfolio-v1.0/figures/core10_rtx3080_comparison.svg",
+    "raw_sha256": "artifacts/portfolio-v1.0/manifests/core10_rtx3080_raw_sha256.csv",
+    "artifact_sha256": "artifacts/portfolio-v1.0/SHA256SUMS.json",
+    "targeted_validation_v2": "artifacts/portfolio-v2.0/results/rtx3080_targeted_validation.json",
+    "targeted_validation_report_en": "artifacts/portfolio-v2.0/reports/rtx3080-targeted-validation.en.md",
+    "targeted_validation_report_zh": "artifacts/portfolio-v2.0/reports/rtx3080-targeted-validation.zh-CN.md",
+    "core10_validation_v2": "artifacts/portfolio-v2.0/core10/core10_rtx3080_comparison.json",
+    "core10_validation_csv_v2": "artifacts/portfolio-v2.0/core10/core10_rtx3080_comparison.csv",
+    "core10_validation_figure_v2": "artifacts/portfolio-v2.0/core10/core10_rtx3080_comparison.svg",
+    "core10_validation_report_en_v2": "artifacts/portfolio-v2.0/core10/core10-rtx3080-confirmation.en.md",
+    "core10_validation_report_zh_v2": "artifacts/portfolio-v2.0/core10/core10-rtx3080-confirmation.zh-CN.md",
+    "core10_validation_sha256_v2": "artifacts/portfolio-v2.0/core10/core10_rtx3080_SHA256SUMS.json",
+    "artifact_sha256_v2": "artifacts/portfolio-v2.0/SHA256SUMS.json",
+    "issue7_trusted_pilot_v2_1": "artifacts/portfolio-v2.1/issue-7/rtx3080/trusted-pilot-summary.json",
+    "issue8_ncu_preflight_v2_1": "artifacts/portfolio-v2.1/issue-8/rtx3080/ncu-preflight-summary.json",
+    "issue10_correctness_v2_1": "artifacts/portfolio-v2.1/issue-10/rtx3080/correctness-summary.json",
+    "artifact_sha256_v2_1": "artifacts/portfolio-v2.1/SHA256SUMS.json"
+  },
+  "validation": {
+    "current_cpu_pytest": "177 passed",
+    "gpu_container": "passed",
+    "cuda_compile": "passed",
+    "official_correctness": "historical 10/10; schema-v2 full 10/10 passed",
+    "rmsnorm_edge_correctness": "passed: 3 seeds x 5 deterministic launches",
+    "cuda_events": "Issue #10 hardened matrix: 5 improved; 095-v5 passed with baseline spread 3.48% and candidate spread 2.47%; historical Core 10: 4 improved, 1 no_improvement, 5 inconclusive",
+    "issue10_resource_lifecycle": "007/040/095 passed same-thread reuse, dual host-thread legacy-default-stream, TLS cleanup, and bounded-release checks",
+    "issue10_close_allowed": "true: all five hardened tasks have a formal outcome; production_ready remains false",
+    "pytorch_same_gpu": "schema-v2 full confirmation: 9/10 tasks have a stable method",
+    "live_api_smoke": "failed: current HTTP 401 (1 request, 0 retries, 0 tokens; 2026-07-22)",
+    "ncu_counters": "blocked: ERR_NVGPUCTRPERM (non-root Docker/WSL; one no-network SYS_ADMIN retry also blocked; Windows native control passed)",
+    "cross_gpu": "blocked: requires authorized A100/L40S rental"
+  },
+  "remaining_work": [
+    "Diagnose historical Session instability for 019/023/026/047 without promoting diagnostic speedups.",
+    "Rerun PyTorch 026 until a correct stable baseline exists before including it in a framework geomean.",
+    "Provide a valid OpenAI credential, then rerun the same one-request smoke and bounded RMSNorm Pilot.",
+    "Move NCU attribution to an eligible WSL/cloud worker while local WSL remains events_only.",
+    "Run matching L40S/A100 comparisons and publish each GPU independently."
+  ]
+}

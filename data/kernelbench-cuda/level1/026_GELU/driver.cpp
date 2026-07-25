@@ -49,8 +49,8 @@ int main() {
 
     // Call GPU implementation (pass raw pointers)
     launch_gpu_implementation(
-        output.data_ptr<void>(),
-        input.data_ptr<void>(),
+        output.data_ptr(),
+        input.data_ptr(),
         batch_size,
         dim
     );

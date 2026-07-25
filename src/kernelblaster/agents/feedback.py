@@ -12,6 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""定义候选代码反馈循环的基础配置、指标记录和通用 Agent 行为。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -46,7 +49,7 @@ __all__ = ["FeedbackConfig", "FeedbackAgent", "FeedbackError"]
 
 @dataclass
 class FeedbackConfig:
-    """Configuration for FeedbackAgent and its subclasses."""
+    """FeedbackAgent 及其子类的配置。"""
 
     agent_name: str
     base_folder: Path
@@ -64,19 +67,27 @@ class FeedbackConfig:
 
 @dataclass
 class Feedback:
+    """封装 `Feedback` 对应的领域状态与操作。"""
     new_messages: list[dict] = field(default_factory=list)
     llm_calls: list[LLMResponse] = field(default_factory=list)
     success: bool = False
     filename: str = None
     contents: str = None
-    # A dictionary of the time taken for various steps in the agent.
-    # The keys are the names of the steps and the values are the times in seconds.
-    # Using the task_timer will automatically add the time taken to the durations dictionary.
+    # 代理中各个步骤所花费时间的字典。
+    # 键是步骤的名称，值是以秒为单位的时间。
+    # 使用 task_timer 会自动将所花费的时间添加到持续时间字典中。
     durations: dict[str, float] = field(default_factory=dict)
     feedback: str = None
 
 
 def write_metrics(filepath: Path, threads: dict[int, dict]):
+    """
+    写入 `write_metrics` 对应的领域操作，并返回调用方所需的标准化结果。
+
+    参数:
+        filepath: 目标文件路径。
+        threads: 调用方提供的 `threads` 参数。
+    """
     metrics_file = [
         {
             "attempt_id": attempt_id,
@@ -94,10 +105,17 @@ def write_metrics(filepath: Path, threads: dict[int, dict]):
 
 
 class FeedbackAgent:
+    """封装候选生成、编译运行、正确性验证和指标反馈的通用循环。"""
     def __init__(
         self,
         fb_config: FeedbackConfig,
     ):
+        """
+        初始化 FeedbackAgent 实例，并保存后续流程所需的配置与依赖。
+
+        参数:
+            fb_config: 调用方提供的 `fb_config` 参数。
+        """
         self.fb_config = fb_config
 
         self.agent_name = fb_config.agent_name
@@ -112,7 +130,7 @@ class FeedbackAgent:
         self.folder.mkdir(exist_ok=True, parents=True)
         self.timers = []
 
-        # Add a custom logger for this agent
+        # 为此代理添加自定义记录器
         self.agent_logger = fb_config.logger.bind(
             agent_name=self.agent_name, folder=str(self.folder)
         )
@@ -123,16 +141,38 @@ class FeedbackAgent:
         self.gpu = fb_config.gpu
 
     def check_rules(self, code: str):
+        """
+        检查 `check_rules` 对应的领域操作，并返回调用方所需的标准化结果。
+
+        参数:
+            code: 待处理的源码文本。
+        """
         for rule in self.file_rules:
             rule(code)
 
     def get_intermediate_filepath(self, attempt_id, task_id) -> Path:
+        """
+        获取 `get_intermediate_filepath` 对应的领域操作，并返回调用方所需的标准化结果。
+
+        参数:
+            attempt_id: 调用方提供的 `attempt_id` 参数。
+            task_id: 调用方分配的任务唯一标识。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         return self.folder / f"attempt{attempt_id}_task{task_id}.cu"
 
     def get_ids_from_filepath(self, filepath: Path) -> tuple[int, int]:
         """
-        Get the attempt_id and task_id from the filepath.
-        The filepath is expected to be of the form *attempt<attempt_id>_task<task_id>.*
+        从文件路径获取 attempt_id 和 task_id。
+        文件路径的格式应为 *attempt<attempt_id>_task<task_id>.*
+
+        参数:
+            filepath: 目标文件路径。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
         match = re.search(r"attempt(\d+)_task(\d+)", filepath.stem)
         assert match, f"Failed to parse filepath for attempt and task id: {filepath}"
@@ -144,6 +184,21 @@ class FeedbackAgent:
     def get_code_from_response(
         self, response, attempt_id, task_id, logger
     ) -> tuple[str, Path]:
+        """
+        获取 `get_code_from_response` 对应的领域操作，并返回调用方所需的标准化结果。
+
+        参数:
+            response: 需要解析或规范化的服务响应。
+            attempt_id: 调用方提供的 `attempt_id` 参数。
+            task_id: 调用方分配的任务唯一标识。
+            logger: 记录诊断信息和任务进度的日志器。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+        异常:
+            FeedbackError: 输入、外部调用或状态不满足执行要求时抛出。
+        """
         code = extract_code_from_response(response)
         if code is None:
             raise FeedbackError(
@@ -154,21 +209,59 @@ class FeedbackAgent:
         return code, filepath
 
     async def get_feedback(self, response, attempt_id, task_id) -> Feedback:
-        # implement in subclasses
+        # 在子类中实现
+        """
+        获取 `get_feedback` 对应的领域操作，并返回调用方所需的标准化结果。
+
+        参数:
+            response: 需要解析或规范化的服务响应。
+            attempt_id: 调用方提供的 `attempt_id` 参数。
+            task_id: 调用方分配的任务唯一标识。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+        异常:
+            NotImplementedError: 输入、外部调用或状态不满足执行要求时抛出。
+        """
         raise NotImplementedError
 
     async def initialize(self):
-        # optionally implement in subclasses
+        # 可选地在子类中实现
+        """初始化 `initialize` 对应的领域操作，并返回调用方所需的标准化结果。"""
         return
 
     def choose_best_task(self, successful_tasks: list[Path]) -> Path:
-        # optionally implement in subclasses
+        # 可选地在子类中实现
+        """
+        选择 `choose_best_task` 对应的领域操作，并返回调用方所需的标准化结果。
+
+        参数:
+            successful_tasks: 调用方提供的 `successful_tasks` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         return successful_tasks[0]
 
     @staticmethod
     def raise_numerics_verification_error(
         stdouts: list[str], stderr: list[str], custom_msg=""
     ) -> FeedbackError:
+        """
+        处理 `raise_numerics_verification_error` 对应的领域操作，并返回调用方所需的标准化结果。
+
+        参数:
+            stdouts: 调用方提供的 `stdouts` 参数。
+            stderr: 调用方提供的 `stderr` 参数。
+            custom_msg: 调用方提供的 `custom_msg` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+        异常:
+            FeedbackError: 输入、外部调用或状态不满足执行要求时抛出。
+        """
         if not custom_msg:
             custom_msg = "The numerics verification failed."
         raise FeedbackError(
@@ -179,25 +272,44 @@ class FeedbackAgent:
     def raise_time_measurement_error(
         stdouts: list[str], stderr: list[str]
     ) -> FeedbackError:
+        """
+        处理 `raise_time_measurement_error` 对应的领域操作，并返回调用方所需的标准化结果。
+
+        参数:
+            stdouts: 调用方提供的 `stdouts` 参数。
+            stderr: 调用方提供的 `stderr` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+        异常:
+            FeedbackError: 输入、外部调用或状态不满足执行要求时抛出。
+        """
         raise FeedbackError(
             f"The time measurement failed. Please check your implementation carefully and try again:\nstdout:\n{stdouts[0]}\nstderr:\n{stderr[0]}",
         )
 
     def check_for_existing_run(self) -> str | None:
+        """
+        检查 `check_for_existing_run` 对应的领域操作，并返回调用方所需的标准化结果。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         finished_fp = self.folder / ".finished"
         successful_files = list(self.folder.glob("success_*"))
 
-        # The tasks are named success_attempt<attempt_id>_task<task_id>.cu
-        # We want to sort the tasks based on attempt_id and then task_id
-        # Sort the tasks by attempt_id and task_id
+        # 这些任务名为 success_attempt<attempt_id>_task<task_id>.cu
+        # 我们希望根据 attempt_id 对任务进行排序，然后对 task_id 进行排序
+        # 按 attempt_id 和 task_id 对任务进行排序
         successful_files.sort(key=lambda x: self.get_ids_from_filepath(x))
 
         attempt_ids = [self.get_ids_from_filepath(p)[0] for p in successful_files]
 
-        # If we find successful files from multiple attempts, keep only the most recent attempt.
-        # This situation can happen when a previous successful run exists and the workflow is restarted
-        # (e.g., with retry_failed=True) producing new attempts in the same folder. Instead of failing, we
-        # filter to the latest attempt and proceed.
+        # 如果我们通过多次尝试找到成功的文件，则仅保留最近的尝试。
+        # 当存在先前的成功运行且工作流程重新启动时，可能会发生这种情况
+        # （e.g.，retry_failed=True）在同一文件夹中产生新的尝试。我们没有失败，而是
+        # 过滤到最新的尝试并继续。
         unique_attempt_ids = set(attempt_ids)
         if len(unique_attempt_ids) > 1:
             latest_attempt_id = max(unique_attempt_ids)
@@ -208,7 +320,7 @@ class FeedbackAgent:
             successful_files = [
                 p for p in successful_files if self.get_ids_from_filepath(p)[0] == latest_attempt_id
             ]
-            # Recompute attempt_ids after filtering
+            # 过滤后重新计算attempt_ids
             attempt_ids = [latest_attempt_id] * len(successful_files)
 
         if finished_fp.exists() and len(successful_files):
@@ -238,11 +350,22 @@ class FeedbackAgent:
                 if file.is_file():
                     file.unlink()
                 elif file.is_dir():
-                    # Remove directories (like trajectory directories)
+                    # 删除目录（如轨迹目录）
                     shutil.rmtree(file)
             return None
 
     async def __run(self, messages, attempt_id, task_id) -> Feedback:
+        """
+        处理 `__run` 对应的领域操作，并返回调用方所需的标准化结果。
+
+        参数:
+            messages: 按对话顺序排列的 LLM 消息。
+            attempt_id: 调用方提供的 `attempt_id` 参数。
+            task_id: 调用方分配的任务唯一标识。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         timer = self.timers[task_id]
         logger = self.task_loggers[task_id]
 
@@ -277,7 +400,10 @@ class FeedbackAgent:
 
     async def run(self) -> Path:
         """
-        Run the agent and return the filename and the generated code.
+        运行代理并返回文件名和生成的代码。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
         existing_attempt = self.check_for_existing_run()
         if isinstance(existing_attempt, Path):
@@ -368,11 +494,11 @@ class FeedbackAgent:
                 if feedback.success:
                     successful_tasks.append(feedback.filename)
 
-            # save metrics to the file
+            # 将指标保存到文件中
             write_metrics(self.folder / "metrics.jsonl", threads)
 
             if len(successful_tasks):
-                # successful tasks found in this attempt. Choose the best one and break
+                # 在这次尝试中发现了成功的任务。选择最好的一个并打破
                 chosen_task = self.choose_best_task(successful_tasks)
                 self.agent_logger.info(
                     f"Successfully generated and verified code in task {chosen_task}"

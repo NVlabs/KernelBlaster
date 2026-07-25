@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Deprecated compatibility entrypoint.  Use `docker compose` from the repository
+# root; this file includes exactly that canonical Compose specification.
+name: kernelblaster
+include:
+  - path: ../compose.yaml
+    project_directory: ..

@@ -12,8 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""提供异步工作流 API、任务队列、状态持久化、恢复与取消能力。"""
+
 import argparse
 import asyncio
+import os
 import sys
 from loguru import logger
 from pathlib import Path
@@ -26,6 +30,7 @@ import json
 import uvicorn
 from fastapi import (
     FastAPI,
+    Depends,
     HTTPException,
     BackgroundTasks,
 )
@@ -37,22 +42,29 @@ from ..agents.utils.file_operations import get_agent_status
 from ..config import config, WorkflowConfig, GPUType
 from ..resources import *
 from ..workflow import *
+from .auth import require_control_token, validate_token_boundaries
 
 
 app = FastAPI(title="KernelBlaster API")
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
+cors_origins = [
+    value.strip()
+    for value in os.getenv("KERNELBLASTER_CORS_ORIGINS", "").split(",")
+    if value.strip()
+]
+if cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
 
 
-# Task tracking
+# 任务追踪
 class TaskStatus:
+    """封装 `TaskStatus` 对应的领域状态与操作。"""
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -63,14 +75,34 @@ class TaskStatus:
 
 
 class Task:
+    """封装 `Task` 对应的领域状态与操作。"""
     def __init__(self, task_id, params, user_id):
+        """
+        初始化 Task 实例，并保存后续流程所需的配置与依赖。
+
+        参数:
+            task_id: 调用方分配的任务唯一标识。
+            params: 调用方提供的 `params` 参数。
+            user_id: 调用方提供的 `user_id` 参数。
+
+        异常:
+            ValueError: 输入、外部调用或状态不满足执行要求时抛出。
+        """
         self.task_id = task_id
         self.params = params
-        self.folder = (
-            OUTPUT_DIR / params.folder
-            if params.folder
-            else OUTPUT_DIR / user_id / task_id if user_id else OUTPUT_DIR / task_id
-        )
+        output_root = OUTPUT_DIR.resolve()
+        if params.folder:
+            requested = Path(params.folder)
+            if requested.is_absolute():
+                raise ValueError("Task folder must be relative to the output directory")
+            folder = output_root / requested
+        elif user_id:
+            folder = output_root / user_id / task_id
+        else:
+            folder = output_root / task_id
+        self.folder = folder.resolve()
+        if not self.folder.is_relative_to(output_root):
+            raise ValueError("Task folder escapes the output directory")
         self.status = TaskStatus.PENDING
         self.creation_time = time.time()
         self.start_time = None
@@ -81,14 +113,15 @@ class Task:
         self.state = None
 
 
-# Global state
+# 全局状态
 TASKS: dict[str, Task] = {}
-TASK_QUEUE: List[str] = []  # Queue of pending task_ids in order of submission
+TASK_QUEUE: List[str] = []  # 按提交顺序排列的待处理 task_ids 队列
 SEMAPHORE = None
 OUTPUT_DIR: Path = None
 
 
 class WorkflowRequest(BaseModel):
+    """描述服务执行一次操作所需的输入字段。"""
     user_message: str
     reference_code: str
     folder: Optional[str] = None
@@ -103,12 +136,14 @@ class WorkflowRequest(BaseModel):
 
 
 class TaskResponse(BaseModel):
+    """表示服务返回给调用方的结构化响应。"""
     task_id: str
     status: str
     queue_position: Optional[int] = None
 
 
 class TaskStatusResponse(BaseModel):
+    """表示服务返回给调用方的结构化响应。"""
     task_id: str
     status: str
     creation_time: float
@@ -121,6 +156,7 @@ class TaskStatusResponse(BaseModel):
 
 
 class StatusResponse(BaseModel):
+    """表示服务返回给调用方的结构化响应。"""
     tasks: dict[str, dict]
     running_count: int
     pending_count: int
@@ -128,7 +164,15 @@ class StatusResponse(BaseModel):
 
 
 def get_queue_position(task_id: str) -> Optional[int]:
-    """Get the position of a task in the queue (0 for running, 1+ for pending)"""
+    """
+    获取任务在队列中的位置（0 表示正在运行，1+ 表示待处理）
+
+    参数:
+        task_id: 调用方分配的任务唯一标识。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+    """
     assert task_id in TASKS, f"Task {task_id} not found"
 
     task = TASKS[task_id]
@@ -144,9 +188,17 @@ def get_queue_position(task_id: str) -> Optional[int]:
 
 
 def get_task_status_data(task_id: str) -> dict:
-    """Get task status data in a format suitable for API responses."""
+    """
+    以适合 API 响应的格式获取任务状态数据。
+
+    参数:
+        task_id: 调用方分配的任务唯一标识。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+    """
     if task_id not in TASKS:
-        # Try to load from file for completed tasks
+        # 尝试从文件加载已完成的任务
         task = load_task_status(task_id)
         if not task:
             return {"error": f"Task {task_id} not found"}
@@ -185,11 +237,16 @@ def get_task_status_data(task_id: str) -> dict:
 
 
 def save_task_status(task: Task):
-    """Save task status to a file in the task's folder."""
+    """
+    将任务状态保存到任务文件夹中的文件中。
+
+    参数:
+        task: 调用方提供的 `task` 参数。
+    """
     task_folder = task.folder
     task_folder.mkdir(parents=True, exist_ok=True)
 
-    # Create a serializable version of the task
+    # 创建任务的可序列化版本
     task_data = {
         "task_id": task.task_id,
         "status": task.status,
@@ -199,13 +256,21 @@ def save_task_status(task: Task):
         "result": task.result,
     }
 
-    # Save to status.json in the task's folder
+    # 保存到任务文件夹中的 status.json
     with open(task_folder / "status.json", "w") as f:
         json.dump(task_data, f)
 
 
 def load_task_status_from_folder(task_folder: Path) -> Optional[Task]:
-    """Load task status from a specific folder path."""
+    """
+    从特定文件夹路径加载任务状态。
+
+    参数:
+        task_folder: 调用方提供的 `task_folder` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+    """
     status_file = task_folder / "status.json"
 
     if not status_file.exists():
@@ -217,12 +282,12 @@ def load_task_status_from_folder(task_folder: Path) -> Optional[Task]:
 
         task_id = task_data["task_id"]
 
-        # try extract user_id from task_folder
+        # 尝试从 task_folder 中提取 user_id
         user_id = task_folder.parent.name if task_folder.parent.name else None
 
-        # Create a task object from the data
+        # 从数据创建任务对象
         task = Task(task_id, type("MockParams", (), {"folder": None}), user_id)
-        task.folder = task_folder  # Set the folder directly since we know it
+        task.folder = task_folder  # 既然我们知道就直接设置文件夹
         task.status = task_data["status"]
         task.creation_time = task_data["creation_time"]
         task.start_time = task_data["start_time"]
@@ -235,7 +300,12 @@ def load_task_status_from_folder(task_folder: Path) -> Optional[Task]:
 
 
 def restore_previous_tasks(output_dir: Path):
-    """Restore previous tasks from the output directory."""
+    """
+    从输出目录恢复以前的任务。
+
+    参数:
+        output_dir: 调用方提供的 `output_dir` 参数。
+    """
     if not output_dir.exists():
         logger.info("Output directory does not exist, no previous tasks to restore")
         return
@@ -248,7 +318,7 @@ def restore_previous_tasks(output_dir: Path):
                 tasks = []
                 task = load_task_status_from_folder(item)
                 if not task:
-                    # this might be a username folder, which we need to check for children folders for tasks
+                    # 这可能是一个用户名文件夹，我们需要在其中检查任务的子文件夹
                     for child in item.iterdir():
                         if child.is_dir():
                             task = load_task_status_from_folder(child)
@@ -257,7 +327,7 @@ def restore_previous_tasks(output_dir: Path):
                     tasks.append(task)
 
                 for task in tasks:
-                    # For pending/running tasks, update to cancelled
+                    # 对于待处理/正在运行的任务，更新为已取消
                     if task.status not in [
                         TaskStatus.COMPLETED,
                         TaskStatus.FAILED,
@@ -286,7 +356,15 @@ def restore_previous_tasks(output_dir: Path):
 
 
 def load_task_status(task_id: str) -> Optional[Task]:
-    """Load task status from the task's folder."""
+    """
+    从任务文件夹加载任务状态。
+
+    参数:
+        task_id: 调用方分配的任务唯一标识。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+    """
     if task_id not in TASKS:
         return None
 
@@ -295,12 +373,19 @@ def load_task_status(task_id: str) -> Optional[Task]:
 
 
 async def process_task(task_id: str, params: WorkflowRequest):
+    """
+    执行一个排队工作流任务，并持久化其状态和最终产物。
+
+    参数:
+        task_id: 调用方分配的任务唯一标识。
+        params: 调用方提供的 `params` 参数。
+    """
     task = TASKS[task_id]
     job_logger_id = None
     job_logger = None
     try:
         async with SEMAPHORE:
-            # Remove from pending queue when task starts running
+            # 任务开始运行时从待处理队列中删除
             assert task_id in TASK_QUEUE, f"Task {task_id} not in queue"
             assert task.status == TaskStatus.PENDING, f"Task {task_id} is not pending"
             TASK_QUEUE.remove(task_id)
@@ -310,11 +395,11 @@ async def process_task(task_id: str, params: WorkflowRequest):
 
             logger.info(f"Task {task_id} started running: {task_folder}")
 
-            # Update task status
+            # 更新任务状态
             task.status = TaskStatus.RUNNING
             task.start_time = time.time()
 
-            # create logger for the job
+            # 为作业创建记录器
             job_logger = logger.bind(job_id=task_id)
             job_logger_id = job_logger.add(
                 task_folder / "run.log",
@@ -322,8 +407,8 @@ async def process_task(task_id: str, params: WorkflowRequest):
                 backtrace=True,
                 diagnose=True,
                 format=config.CUSTOM_LOGGER_FORMAT,
-                # task_id refers to the parallel generation thread in kernelblaster
-                # so use the job_id to filter the logs here
+                # task_id指的是kernelblaster中的并行生成线程
+                # 所以这里使用job_id来过滤日志
                 filter=lambda record: record["extra"].get("job_id") == task_id,
             )
 
@@ -351,10 +436,17 @@ async def process_task(task_id: str, params: WorkflowRequest):
                 task.status = TaskStatus.TIMEOUT
                 task.result = result.error
                 logger.warning(f"Task {task_id} timed out: {task.result}")
-            else:
+            elif result.success:
                 task.status = TaskStatus.COMPLETED
                 task.result = result.generated_codes
                 logger.info(f"Task {task_id} completed successfully: {task.result}")
+            else:
+                task.status = TaskStatus.FAILED
+                task.result = result.outcome.to_dict()
+                logger.warning(
+                    f"Task {task_id} ended with {result.outcome.status.value}: "
+                    f"{result.error}"
+                )
 
     except asyncio.CancelledError:
         logger.info(f"Task {task_id} was cancelled")
@@ -368,20 +460,20 @@ async def process_task(task_id: str, params: WorkflowRequest):
     finally:
         task.end_time = time.time()
         if task_id in TASK_QUEUE:
-            # Remove from the queue if the task is still remaining in the queue.
-            # This can occur if process_task() is cancelled while waiting for the semaphore
+            # 如果任务仍保留在队列中，则从队列中删除。
+            # 如果在等待信号量时取消 process_task()，则会发生这种情况
             TASK_QUEUE.remove(task_id)
         if job_logger is not None:
             job_logger.remove(job_logger_id)
 
-        # If task is in a terminal state, save status to file
+        # 如果任务处于最终状态，则将状态保存到文件
         if task.status in [
             TaskStatus.COMPLETED,
             TaskStatus.FAILED,
             TaskStatus.CANCELLED,
             TaskStatus.TIMEOUT,
         ]:
-            # Save task status to a file in its folder
+            # 将任务状态保存到其文件夹中的文件中
             save_task_status(task)
             logger.info(
                 f"Task {task_id} with status {task.status} completed and saved to disk"
@@ -389,17 +481,45 @@ async def process_task(task_id: str, params: WorkflowRequest):
 
 
 async def create_task(task_id: str, params: WorkflowRequest):
+    """
+    创建 `create_task` 对应的领域操作，并返回调用方所需的标准化结果。
+
+    参数:
+        task_id: 调用方分配的任务唯一标识。
+        params: 调用方提供的 `params` 参数。
+    """
     TASKS[task_id].task = asyncio.create_task(process_task(task_id, params))
 
 
 @app.post("/submit", response_model=TaskResponse)
-async def submit_workflow(request: WorkflowRequest, background_tasks: BackgroundTasks):
+async def submit_workflow(
+    request: WorkflowRequest,
+    background_tasks: BackgroundTasks,
+    _authorized: None = Depends(require_control_token),
+):
+    """
+    提交 `submit_workflow` 对应的领域操作，并返回调用方所需的标准化结果。
+
+    参数:
+        request: 经过类型约束的服务请求对象。
+        background_tasks: 调用方提供的 `background_tasks` 参数。
+        _authorized: 调用方提供的 `_authorized` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+    异常:
+        HTTPException: 输入、外部调用或状态不满足执行要求时抛出。
+    """
     task_id = str(uuid.uuid4())
-    task = Task(task_id, request, request.user_id)
+    try:
+        task = Task(task_id, request, request.user_id)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     logger.info(f"Task {task_id} created: {task.folder}")
     TASKS[task_id] = task
 
-    # Add to queue of pending tasks
+    # 添加到待处理任务队列
     TASK_QUEUE.append(task_id)
 
     background_tasks.add_task(create_task, task_id, request)
@@ -415,8 +535,23 @@ async def submit_workflow(request: WorkflowRequest, background_tasks: Background
 
 
 @app.get("/status/{task_id}")
-async def get_task_status(task_id: str):
-    """HTTP endpoint to get the status of a task."""
+async def get_task_status(
+    task_id: str,
+    _authorized: None = Depends(require_control_token),
+):
+    """
+    用于获取任务状态的 HTTP 端点。
+
+    参数:
+        task_id: 调用方分配的任务唯一标识。
+        _authorized: 调用方提供的 `_authorized` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+    异常:
+        HTTPException: 输入、外部调用或状态不满足执行要求时抛出。
+    """
     status_data = get_task_status_data(task_id)
     if "error" in status_data:
         raise HTTPException(status_code=404, detail=status_data["error"])
@@ -424,14 +559,30 @@ async def get_task_status(task_id: str):
 
 
 @app.post("/cancel/{task_id}", response_model=TaskResponse)
-async def cancel_task(task_id: str):
+async def cancel_task(
+    task_id: str,
+    _authorized: None = Depends(require_control_token),
+):
+    """
+    取消 `cancel_task` 对应的领域操作，并返回调用方所需的标准化结果。
+
+    参数:
+        task_id: 调用方分配的任务唯一标识。
+        _authorized: 调用方提供的 `_authorized` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+    异常:
+        HTTPException: 输入、外部调用或状态不满足执行要求时抛出。
+    """
     if task_id not in TASKS:
         raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
 
     task = TASKS[task_id]
 
     if task.status in [TaskStatus.RUNNING, TaskStatus.PENDING]:
-        # The task's cancellation method should handle removing itself from the queue
+        # 任务的取消方法应该处理将其自身从队列中删除
         assert task.task is not None, "Task should be running"
         logger.info(f"Cancelling task {task_id}")
         task.task.cancel()
@@ -444,7 +595,12 @@ async def cancel_task(task_id: str):
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint to verify the API server is running and connected to dependencies."""
+    """
+    运行状况检查端点，用于验证 API 服务器是否正在运行并连接到依赖项。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+    """
     try:
         compile_server_status = "ok" if config.COMPILE_SERVER_URL else "not_connected"
         gpu_server_status = "ok" if config.GPU_SERVER_URL else "not_connected"
@@ -468,7 +624,16 @@ async def health_check():
 
 
 def run_server(host, port, output_dir, gpu: Optional[GPUType]):
-    # Set up logging
+    # 设置日志记录
+    """
+    运行 `run_server` 对应的领域操作，并返回调用方所需的标准化结果。
+
+    参数:
+        host: 远端服务监听或连接的主机名。
+        port: 远端服务监听或连接的端口。
+        output_dir: 调用方提供的 `output_dir` 参数。
+        gpu: 执行或分析任务使用的 GPU 配置。
+    """
     logger.configure(
         handlers=[
             dict(
@@ -483,13 +648,13 @@ def run_server(host, port, output_dir, gpu: Optional[GPUType]):
         extra=dict(agent_name="server", attempt_id=None, task_id=None),
     )
 
-    # Ensure output directory exists
+    # 确保输出目录存在
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Restore previous tasks
+    # 恢复之前的任务
     restore_previous_tasks(output_dir)
 
-    # Set up resources
+    # 设置资源
     try:
         compile_server = CompileServer(logger, output_dir)
         gpu_server = GPUServer(logger, output_dir, gpu=gpu)
@@ -506,7 +671,7 @@ def run_server(host, port, output_dir, gpu: Optional[GPUType]):
         logger.error(f"Failed to initialize resources: {e}")
         sys.exit(1)
 
-    # Start the server
+    # 启动服务器
     logger.info(
         f"Starting server on {host}:{port} with max concurrency {SEMAPHORE._value}"
     )
@@ -514,9 +679,11 @@ def run_server(host, port, output_dir, gpu: Optional[GPUType]):
 
 
 def main():
+    """处理 `main` 对应的领域操作，并返回调用方所需的标准化结果。"""
+    validate_token_boundaries()
     global OUTPUT_DIR
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind to")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
     parser.add_argument(
         "--concurrency", type=int, default=16, help="Maximum concurrent workflows"
@@ -535,7 +702,7 @@ def main():
     global SEMAPHORE
     SEMAPHORE = asyncio.Semaphore(args.concurrency)
 
-    # Use None as the GPU type to default start GPU server on host machine with its current GPU type
+    # 使用 None 作为 GPU 类型，默认在主机上以其当前 GPU 类型启动 GPU 服务器
     run_server(args.host, args.port, args.output_dir, None)
 
 

@@ -1,0 +1,1133 @@
+{
+  "schema_version": "2.0",
+  "issue": 10,
+  "run_date": "2026-07-23",
+  "base_commit": "4a8fb35712c12e9619e4603cbe7d2620097282ba",
+  "source_state": "dirty_worktree_with_per_file_sha256",
+  "environment": {
+    "gpu": "NVIDIA GeForce RTX 3080",
+    "compute_capability": "8.6",
+    "container_image": "kernelblaster-gpu@sha256:ae4d23986d0f8778103436b10a58d88ba2ae64faf87650d2b70f594f868ab487",
+    "torch": "2.6.0a0+ecf3bae40a.nv25.01",
+    "cuda_toolkit": "12.8",
+    "cpu_tests": "177 passed"
+  },
+  "runtime_contract": {
+    "input_dtype": "fp16",
+    "accumulation_dtype": "fp32",
+    "layout": "contiguous_row_major",
+    "stream_mode": "legacy_default",
+    "max_streams": 1,
+    "graph_capture": false,
+    "direction": "inference_forward",
+    "fallback": "none",
+    "production_ready": false
+  },
+  "performance_protocol": {
+    "scope": "canonical_shapes_only",
+    "warmups": 20,
+    "samples_per_session": 100,
+    "sessions": 5,
+    "ordering": "AB_BA",
+    "max_session_spread_percent": 5.0,
+    "minimum_median_speedup": 1.01,
+    "paired_bootstrap_95_lower_must_exceed": 1.0,
+    "edge_timing_allowed": false
+  },
+  "tasks": [
+    {
+      "task_id": "004",
+      "kernel": "Matrix-vector multiplication",
+      "candidate": "row_block_half2",
+      "evidence_run": "004-v2",
+      "suite_status": "completed",
+      "validation_gates": {
+        "correctness": "passed",
+        "correctness_error_regression": "passed",
+        "events_stability": "passed",
+        "ncu_attribution": null,
+        "performance": true
+      },
+      "correctness_matrix": {
+        "status": "passed",
+        "correctness_error_regression": "passed",
+        "official": [
+          {
+            "mode": "original-official",
+            "passed": true,
+            "returncode": 0
+          },
+          {
+            "mode": "normalized-official",
+            "passed": true,
+            "returncode": 0
+          }
+        ],
+        "edge_distribution": {
+          "case_seed_records": 15,
+          "case_ids": [
+            "boundary-1x1",
+            "canonical",
+            "neighbor-257x129",
+            "odd-17x31",
+            "odd-33x65"
+          ],
+          "seeds": [
+            0,
+            42,
+            20260721
+          ],
+          "count": 1692,
+          "quantile_sample_count": 1692,
+          "quantile_sampling": "deterministic_stride",
+          "quantile_max_samples": 1048576,
+          "aggregate_quantile_semantics": "max_per_case_quantile_envelope",
+          "mismatch_count": 0,
+          "nonfinite_count": 0,
+          "finite": true,
+          "deterministic": true,
+          "abs_mean": 0.02457502257,
+          "abs_rmse": 0.0530867934,
+          "abs_p50": 0.03231811523,
+          "abs_p90": 0.1614990234,
+          "abs_p99": 0.2499389648,
+          "abs_p999": 0.388671875,
+          "abs_max": 0.388671875,
+          "normalized_p50": 0.01728472859,
+          "normalized_p90": 0.03483680636,
+          "normalized_p99": 0.04379409552,
+          "normalized_p999": 0.04700573534,
+          "normalized_max": 0.04700573534
+        }
+      },
+      "resource_lifecycle": {
+        "policy": {
+          "kind": "none",
+          "ownership": "none",
+          "workspace_bytes": 0
+        },
+        "reentrant_under_contract": true,
+        "requires_prewarm": false,
+        "status": "passed_no_persistent_resources",
+        "protocol": "not_applicable"
+      },
+      "performance_confirmation": {
+        "outcome": "improved",
+        "stable": true,
+        "formal_valid": true,
+        "performance_claim_allowed": true,
+        "claim_kind": "formal",
+        "sessions": 5,
+        "warmup": 20,
+        "repetitions": 100,
+        "retest_triggered": false,
+        "active_round": 0,
+        "round_spreads": [
+          {
+            "round": 0,
+            "baseline_spread_percent": 0.6473369561992293,
+            "candidate_spread_percent": 0.2873585005873869
+          }
+        ],
+        "baseline_median_us": 19165.6961441,
+        "candidate_median_us": 107.008004189,
+        "baseline_session_spread_percent": 0.6473369561992293,
+        "candidate_session_spread_percent": 0.2873585005873869,
+        "all_sessions_not_slower": true,
+        "session_speedups": [
+          178.76312452029572,
+          178.91490240724306,
+          180.02870166632187,
+          179.47316939127575,
+          178.8708048427239
+        ],
+        "median_speedup": 178.91490240724306,
+        "bootstrap_95_lower": 178.76312452029572,
+        "bootstrap_95_upper": 180.02870166632187,
+        "gate_passed": true,
+        "gate_reason": null
+      },
+      "source_provenance": {
+        "candidate_source": "004_matvec_sm86.cu",
+        "candidate_source_sha256": "896fe35685ca50142d1eb9dcae9e398d6d158b2a059aceda87c6cf6c2c4ff107",
+        "normalized_source_sha256": "4f854d900c206b655a21430a5a1763b6cdd20ff1a26ef02be39df0444c9e6036",
+        "official_driver_sha256": "e8e5fb659042a4e84a7c17d41c08f9c970500c841f8fdf6033dd19634292b4c6",
+        "extra_correctness_drivers": [
+          {
+            "name": "004_matvec_edge_driver.cpp",
+            "sha256": "90ab7eaa8436cc3cf81c471f64ecd89edbc38e0251d0bf313f4d6a615d1b0107"
+          }
+        ],
+        "candidate_only_correctness_drivers": [],
+        "correctness_support_headers": [
+          {
+            "path": "src/kernelblaster/servers/cuda_env/correctness_metrics.h",
+            "sha256": "a36e6596b099c61f9bf5f529c10a078cc2d8083906463630f822c8ce774e2e57"
+          }
+        ],
+        "candidate_manifest_sha256": "b1af4f572f4d202da01028c4193d11250595f0ba18327443c1b997c835f02de0",
+        "git_commit": "4a8fb35712c12e9619e4603cbe7d2620097282ba",
+        "container_image": "kernelblaster-gpu:issue8-10",
+        "container_digest": "sha256:ae4d23986d0f8778103436b10a58d88ba2ae64faf87650d2b70f594f868ab487"
+      },
+      "evidence": [
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/004/run_manifest.json",
+          "size_bytes": 73753,
+          "sha256": "2a0d025c37b82e5d4db6c71424ed7cdf1225f2062cbbb1ce985f09ba995fa879"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/004/summary.json",
+          "size_bytes": 5275,
+          "sha256": "fd702e800e0bee70b0cdc96ee3a3e437c8b98b5af9b265d4991f789e727e8fac"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/004/measurements.jsonl",
+          "size_bytes": 31504,
+          "sha256": "eedefd4e9218331dfcdf49699e56fdfe227aac492b3575e3aa1c2a31fd8d514d"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/004/suite_summary.json",
+          "size_bytes": 3459,
+          "sha256": "182af4dd2b4e666d6be84088633275e5582d0bfed4c714f749ae86d8f883865d"
+        }
+      ]
+    },
+    {
+      "task_id": "007",
+      "kernel": "Small-K matrix multiplication",
+      "candidate": "cublas_gemm_ex",
+      "evidence_run": "007-v3",
+      "suite_status": "completed",
+      "validation_gates": {
+        "candidate_only_correctness": "passed",
+        "correctness": "passed",
+        "correctness_error_regression": "passed",
+        "events_stability": "passed",
+        "ncu_attribution": null,
+        "performance": true
+      },
+      "correctness_matrix": {
+        "status": "passed",
+        "correctness_error_regression": "passed",
+        "official": [
+          {
+            "mode": "original-official",
+            "passed": true,
+            "returncode": 0
+          },
+          {
+            "mode": "normalized-official",
+            "passed": true,
+            "returncode": 0
+          }
+        ],
+        "edge_distribution": {
+          "case_seed_records": 9,
+          "case_ids": [
+            "boundary-1x1x1",
+            "neighbor-65x33x31",
+            "odd-17x19x7"
+          ],
+          "seeds": [
+            0,
+            42,
+            20260721
+          ],
+          "count": 7407,
+          "quantile_sample_count": 7407,
+          "quantile_sampling": "deterministic_stride",
+          "quantile_max_samples": 1048576,
+          "aggregate_quantile_semantics": "max_per_case_quantile_envelope",
+          "mismatch_count": 0,
+          "nonfinite_count": 0,
+          "finite": true,
+          "deterministic": true,
+          "abs_mean": 0.0007238021267,
+          "abs_rmse": 0.001102636973,
+          "abs_p50": 0.0004911422729,
+          "abs_p90": 0.001894950867,
+          "abs_p99": 0.003768920898,
+          "abs_p999": 0.006420135498,
+          "abs_max": 0.007040023804,
+          "normalized_p50": 0.01131900307,
+          "normalized_p90": 0.02556937002,
+          "normalized_p99": 0.03588903695,
+          "normalized_p999": 0.042434562,
+          "normalized_max": 0.042434562
+        },
+        "candidate_only_canonical_distribution": {
+          "case_seed_records": 3,
+          "case_ids": [
+            "canonical-16384x16384x32"
+          ],
+          "seeds": [
+            0,
+            42,
+            20260721
+          ],
+          "count": 805306368,
+          "quantile_sample_count": 3145728,
+          "quantile_sampling": "deterministic_stride",
+          "quantile_max_samples": 1048576,
+          "aggregate_quantile_semantics": "max_per_case_quantile_envelope",
+          "mismatch_count": 0,
+          "nonfinite_count": 0,
+          "finite": true,
+          "deterministic": true,
+          "abs_mean": 0.0007874327821,
+          "abs_rmse": 0.001169851133,
+          "abs_p50": 0.0004835128784,
+          "abs_p90": 0.001848220825,
+          "abs_p99": 0.003724098206,
+          "abs_p999": 0.006502151489,
+          "abs_max": 0.01555633545,
+          "normalized_p50": 0.011375851,
+          "normalized_p90": 0.02533461712,
+          "normalized_p99": 0.03581383824,
+          "normalized_p999": 0.04087278619,
+          "normalized_max": 0.04595719278
+        },
+        "candidate_only_gate": {
+          "drivers": [
+            "candidate-only-0-007_small_k_matmul_canonical_driver"
+          ],
+          "executions": 2,
+          "status": "passed"
+        },
+        "candidate_only_memory_strategy": "row_chunked_fp32_golden_256_rows",
+        "candidate_only_full_element_statistics": true
+      },
+      "resource_lifecycle": {
+        "policy": {
+          "kind": "cublas_handle",
+          "ownership": "thread_device_raii",
+          "workspace_bytes": 0,
+          "initialization_phase": "correctness_or_warmup",
+          "timed_region_allocations": false,
+          "release_phase": "host_thread_exit",
+          "stream_binding": "cudaStreamLegacy",
+          "validation_protocol": {
+            "kind": "same_thread_reuse_dual_host_thread_release_v1",
+            "same_thread_calls": 5,
+            "host_threads": 2,
+            "calls_per_host_thread": 5,
+            "warmup_thread_waves": 4,
+            "measured_thread_waves_per_group": 8,
+            "measured_groups": 2,
+            "leak_allowance_bytes": 65536,
+            "seeds": [
+              0,
+              42,
+              20260721
+            ],
+            "shape": {
+              "M": 17,
+              "N": 19,
+              "K": 7
+            },
+            "driver": "edge_drivers/007_resource_lifecycle_driver.cpp"
+          }
+        },
+        "reentrant_under_contract": true,
+        "requires_prewarm": true,
+        "status": "passed",
+        "protocols": [
+          "same_host_thread_reuse_5_calls",
+          "dual_host_thread_legacy_default_stream",
+          "thread_exit_tls_cleanup",
+          "cudaMemGetInfo_steady_state_leak_bound"
+        ],
+        "leak_allowance_bytes": 65536,
+        "distribution": {
+          "case_seed_records": 15,
+          "case_ids": [
+            "parallel-host-thread-a",
+            "parallel-host-thread-b",
+            "reuse-5-calls",
+            "thread-exit-waves-a",
+            "thread-exit-waves-b"
+          ],
+          "seeds": [
+            0,
+            42,
+            20260721
+          ],
+          "count": 4845,
+          "quantile_sample_count": 4845,
+          "quantile_sampling": "deterministic_stride",
+          "quantile_max_samples": 1048576,
+          "aggregate_quantile_semantics": "max_per_case_quantile_envelope",
+          "mismatch_count": 0,
+          "nonfinite_count": 0,
+          "finite": true,
+          "deterministic": true,
+          "abs_mean": 0.0003687019906,
+          "abs_rmse": 0.0005559906822,
+          "abs_p50": 0.000289440155,
+          "abs_p90": 0.0009648799896,
+          "abs_p99": 0.001903057098,
+          "abs_p999": 0.003402709961,
+          "abs_max": 0.003402709961,
+          "normalized_p50": 0.009767086245,
+          "normalized_p90": 0.02347181924,
+          "normalized_p99": 0.03425006568,
+          "normalized_p999": 0.03761167824,
+          "normalized_max": 0.03761167824
+        }
+      },
+      "performance_confirmation": {
+        "outcome": "improved",
+        "stable": true,
+        "formal_valid": true,
+        "performance_claim_allowed": true,
+        "claim_kind": "formal",
+        "sessions": 5,
+        "warmup": 20,
+        "repetitions": 100,
+        "retest_triggered": false,
+        "active_round": 0,
+        "round_spreads": [
+          {
+            "round": 0,
+            "baseline_spread_percent": 0.7417818045944102,
+            "candidate_spread_percent": 0.32175278028303556
+          }
+        ],
+        "baseline_median_us": 9124.351978300001,
+        "candidate_median_us": 797.695994377,
+        "baseline_session_spread_percent": 0.7417818045944102,
+        "candidate_session_spread_percent": 0.32175278028303556,
+        "all_sessions_not_slower": true,
+        "session_speedups": [
+          11.451094401434895,
+          11.431045539517424,
+          11.446945306809745,
+          11.439024000235216,
+          11.499038061463105
+        ],
+        "median_speedup": 11.446945306809745,
+        "bootstrap_95_lower": 11.431045539517424,
+        "bootstrap_95_upper": 11.499038061463105,
+        "gate_passed": true,
+        "gate_reason": null
+      },
+      "source_provenance": {
+        "candidate_source": "007_small_k_matmul_cublas.cu",
+        "candidate_source_sha256": "a164a0606e96128823b7487a91185267102c299bfa5731e4e7ba8ba16fec236f",
+        "normalized_source_sha256": "42077acd093371aeff8b4bc0ad3ad50176787edcbf5e4957858c65e2b714d713",
+        "official_driver_sha256": "d0cdbed7000b8d81bc1c374f78e616290ebe9adb932b0a59238e9b613d024795",
+        "extra_correctness_drivers": [
+          {
+            "name": "007_small_k_matmul_edge_driver.cpp",
+            "sha256": "dd553be8b3df81f5c2f9358931e34c3cd1f56336383db2c780b45eb512aa36e2"
+          },
+          {
+            "name": "007_resource_lifecycle_driver.cpp",
+            "sha256": "617e86b53b52c9e4493afc7c7c7edd8b247bc19d5ccd71bf27f027a8444ec29f"
+          }
+        ],
+        "candidate_only_correctness_drivers": [
+          {
+            "name": "007_small_k_matmul_canonical_driver.cpp",
+            "scope": "candidate_only",
+            "sha256": "48a9c75cf33f13b4c40a076e869f8af08052da9d6d4da6f6d19e5306bbd9b3c1"
+          }
+        ],
+        "correctness_support_headers": [
+          {
+            "path": "src/kernelblaster/servers/cuda_env/correctness_metrics.h",
+            "sha256": "a36e6596b099c61f9bf5f529c10a078cc2d8083906463630f822c8ce774e2e57"
+          }
+        ],
+        "candidate_manifest_sha256": "b1af4f572f4d202da01028c4193d11250595f0ba18327443c1b997c835f02de0",
+        "git_commit": "4a8fb35712c12e9619e4603cbe7d2620097282ba",
+        "container_image": "kernelblaster-gpu:issue8-10",
+        "container_digest": "sha256:ae4d23986d0f8778103436b10a58d88ba2ae64faf87650d2b70f594f868ab487"
+      },
+      "evidence": [
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/007/run_manifest.json",
+          "size_bytes": 131224,
+          "sha256": "db7683b63651cc7ebde6350ebaeab5445ef747d0abe1f799936fde2da4d68c66"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/007/summary.json",
+          "size_bytes": 5288,
+          "sha256": "60dcab4c6f150e21e7843ce6d01802a6c7be3143545f0bf4d44b6c6682b06fcf"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/007/measurements.jsonl",
+          "size_bytes": 31639,
+          "sha256": "3125b7646d16b42a24791dcaea663e329d800f747ff0f7ded6f82d58bedc6a32"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/007/suite_summary.json",
+          "size_bytes": 3593,
+          "sha256": "571a72a033747323f593f81b0f7287e3a247436acc4a90b30b7c800c1c94d3ad"
+        }
+      ]
+    },
+    {
+      "task_id": "036",
+      "kernel": "RMSNorm",
+      "candidate": "rmsnorm_v3c",
+      "evidence_run": "036-v3",
+      "suite_status": "completed",
+      "validation_gates": {
+        "candidate_only_correctness": "not_applicable",
+        "correctness": "passed",
+        "correctness_error_regression": "passed",
+        "events_stability": "passed",
+        "ncu_attribution": null,
+        "performance": true
+      },
+      "correctness_matrix": {
+        "status": "passed",
+        "correctness_error_regression": "passed",
+        "official": [
+          {
+            "mode": "original-official",
+            "passed": true,
+            "returncode": 0
+          },
+          {
+            "mode": "normalized-official",
+            "passed": true,
+            "returncode": 0
+          }
+        ],
+        "edge_distribution": {
+          "case_seed_records": 18,
+          "case_ids": [
+            "aligned-c64",
+            "boundary-1x4x1x3",
+            "canonical",
+            "neighbor-c63",
+            "neighbor-c65-odd",
+            "neighbor-c65-small"
+          ],
+          "seeds": [
+            0,
+            42,
+            20260721
+          ],
+          "count": 201462996,
+          "quantile_sample_count": 3282132,
+          "quantile_sampling": "deterministic_stride",
+          "quantile_max_samples": 1048576,
+          "aggregate_quantile_semantics": "max_per_case_quantile_envelope",
+          "mismatch_count": 0,
+          "nonfinite_count": 0,
+          "finite": true,
+          "deterministic": true,
+          "abs_mean": 0.0001410772081,
+          "abs_rmse": 0.0002078059249,
+          "abs_p50": 0.0001758337021,
+          "abs_p90": 0.0004116296768,
+          "abs_p99": 0.0008738040924,
+          "abs_p999": 0.0009756088257,
+          "abs_max": 0.001952648163,
+          "normalized_p50": 0.01093522739,
+          "normalized_p90": 0.02172078006,
+          "normalized_p99": 0.03096585721,
+          "normalized_p999": 0.03752046078,
+          "normalized_max": 0.04313403368
+        }
+      },
+      "resource_lifecycle": {
+        "policy": {
+          "kind": "none",
+          "ownership": "none",
+          "workspace_bytes": 0
+        },
+        "reentrant_under_contract": true,
+        "requires_prewarm": false,
+        "status": "passed_no_persistent_resources",
+        "protocol": "not_applicable"
+      },
+      "performance_confirmation": {
+        "outcome": "improved",
+        "stable": true,
+        "formal_valid": true,
+        "performance_claim_allowed": true,
+        "claim_kind": "formal",
+        "sessions": 5,
+        "warmup": 20,
+        "repetitions": 100,
+        "retest_triggered": false,
+        "active_round": 0,
+        "round_spreads": [
+          {
+            "round": 0,
+            "baseline_spread_percent": 0.3367736447845049,
+            "candidate_spread_percent": 0.08695718200391056
+          }
+        ],
+        "baseline_median_us": 28740.6082153,
+        "candidate_median_us": 589.312016964,
+        "baseline_session_spread_percent": 0.3367736447845049,
+        "candidate_session_spread_percent": 0.08695718200391056,
+        "all_sessions_not_slower": true,
+        "session_speedups": [
+          48.769764382822196,
+          48.758470377595074,
+          48.807824324262526,
+          48.965217835885575,
+          48.917461943697354
+        ],
+        "median_speedup": 48.807824324262526,
+        "bootstrap_95_lower": 48.758470377595074,
+        "bootstrap_95_upper": 48.965217835885575,
+        "gate_passed": true,
+        "gate_reason": null
+      },
+      "source_provenance": {
+        "candidate_source": "../rmsnorm/best_rmsnorm_sm86.cu",
+        "candidate_source_sha256": "e5b37156dbc7cce22b225ee69a2ddd4b179bc280421e46e23e4cff1d2d777f7b",
+        "normalized_source_sha256": "419d070ac8235eae06d5ce637f070116f9c5b798e2832ebb8d097179ab31596e",
+        "official_driver_sha256": "31e64739cf1e77c9db74668c04f9980abe874d21a06907dc739388a323a0053e",
+        "extra_correctness_drivers": [
+          {
+            "name": "edge_driver.cpp",
+            "sha256": "6f4350613b5d315d9aa1ea2798d599f1febff697593322bc0c8bd9c0ce733cc7"
+          }
+        ],
+        "candidate_only_correctness_drivers": [],
+        "correctness_support_headers": [
+          {
+            "path": "src/kernelblaster/servers/cuda_env/correctness_metrics.h",
+            "sha256": "a36e6596b099c61f9bf5f529c10a078cc2d8083906463630f822c8ce774e2e57"
+          }
+        ],
+        "candidate_manifest_sha256": "b1af4f572f4d202da01028c4193d11250595f0ba18327443c1b997c835f02de0",
+        "git_commit": "4a8fb35712c12e9619e4603cbe7d2620097282ba",
+        "container_image": "kernelblaster-gpu:issue8-10",
+        "container_digest": "sha256:ae4d23986d0f8778103436b10a58d88ba2ae64faf87650d2b70f594f868ab487"
+      },
+      "evidence": [
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/036/run_manifest.json",
+          "size_bytes": 91683,
+          "sha256": "5ce141d4823d8309c7009679974d49c99c73c5cba4b30621138c852ada668a51"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/036/summary.json",
+          "size_bytes": 5217,
+          "sha256": "4e1e4ba92366957af00cf4b43793f30e164e3695a6a16dd77d3dbaf2e478b22e"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/036/measurements.jsonl",
+          "size_bytes": 31488,
+          "sha256": "98bbc6a4265a9311e4547e63ca2ec7f863c0ce1f2b30c2c2cfe2504532da416d"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/036/suite_summary.json",
+          "size_bytes": 3915,
+          "sha256": "8f8d2fa12228e3244cae62dfc91ffa80951e651a0c55b7126d152abec39cddc2"
+        }
+      ]
+    },
+    {
+      "task_id": "040",
+      "kernel": "LayerNorm",
+      "candidate": "multiblock_layernorm",
+      "evidence_run": "040-v2",
+      "suite_status": "completed",
+      "validation_gates": {
+        "candidate_only_correctness": "not_applicable",
+        "correctness": "passed",
+        "correctness_error_regression": "passed",
+        "events_stability": "passed",
+        "ncu_attribution": null,
+        "performance": true
+      },
+      "correctness_matrix": {
+        "status": "passed",
+        "correctness_error_regression": "passed",
+        "official": [
+          {
+            "mode": "original-official",
+            "passed": true,
+            "returncode": 0
+          },
+          {
+            "mode": "normalized-official",
+            "passed": true,
+            "returncode": 0
+          }
+        ],
+        "edge_distribution": {
+          "case_seed_records": 12,
+          "case_ids": [
+            "boundary-1x3x5x7",
+            "canonical",
+            "neighbor-3x16x17x18",
+            "odd-2x7x9x11"
+          ],
+          "seeds": [
+            0,
+            42,
+            20260721
+          ],
+          "count": 201375129,
+          "quantile_sample_count": 3194265,
+          "quantile_sampling": "deterministic_stride",
+          "quantile_max_samples": 1048576,
+          "aggregate_quantile_semantics": "max_per_case_quantile_envelope",
+          "mismatch_count": 0,
+          "nonfinite_count": 0,
+          "finite": true,
+          "deterministic": true,
+          "abs_mean": 0.0001903655325,
+          "abs_rmse": 0.0002933714794,
+          "abs_p50": 0.0001341700554,
+          "abs_p90": 0.0004605054855,
+          "abs_p99": 0.000955581665,
+          "abs_p999": 0.001945495605,
+          "abs_max": 0.005796432495,
+          "normalized_p50": 0.009483452886,
+          "normalized_p90": 0.02454956621,
+          "normalized_p99": 0.03487324342,
+          "normalized_p999": 0.03976082429,
+          "normalized_max": 0.04605807364
+        }
+      },
+      "resource_lifecycle": {
+        "policy": {
+          "kind": "device_workspace",
+          "ownership": "thread_device_raii",
+          "workspace_bytes": 32896,
+          "initialization_phase": "correctness_or_warmup",
+          "timed_region_allocations": false,
+          "release_phase": "host_thread_exit",
+          "stream_binding": "cudaStreamLegacy",
+          "validation_protocol": {
+            "kind": "same_thread_reuse_dual_host_thread_release_v1",
+            "same_thread_calls": 5,
+            "host_threads": 2,
+            "calls_per_host_thread": 5,
+            "warmup_thread_waves": 4,
+            "measured_thread_waves_per_group": 8,
+            "measured_groups": 2,
+            "leak_allowance_bytes": 65536,
+            "seeds": [
+              0,
+              42,
+              20260721
+            ],
+            "shape": {
+              "B": 1,
+              "F": 3,
+              "D1": 5,
+              "D2": 7
+            },
+            "driver": "edge_drivers/040_resource_lifecycle_driver.cpp"
+          }
+        },
+        "reentrant_under_contract": true,
+        "requires_prewarm": true,
+        "status": "passed",
+        "protocols": [
+          "same_host_thread_reuse_5_calls",
+          "dual_host_thread_legacy_default_stream",
+          "thread_exit_tls_cleanup",
+          "cudaMemGetInfo_steady_state_leak_bound"
+        ],
+        "leak_allowance_bytes": 65536,
+        "distribution": {
+          "case_seed_records": 15,
+          "case_ids": [
+            "parallel-host-thread-a",
+            "parallel-host-thread-b",
+            "reuse-5-calls",
+            "thread-exit-waves-a",
+            "thread-exit-waves-b"
+          ],
+          "seeds": [
+            0,
+            42,
+            20260721
+          ],
+          "count": 1575,
+          "quantile_sample_count": 1575,
+          "quantile_sampling": "deterministic_stride",
+          "quantile_max_samples": 1048576,
+          "aggregate_quantile_semantics": "max_per_case_quantile_envelope",
+          "mismatch_count": 0,
+          "nonfinite_count": 0,
+          "finite": true,
+          "deterministic": true,
+          "abs_mean": 0.0001880953418,
+          "abs_rmse": 0.0002855534867,
+          "abs_p50": 0.0001535415649,
+          "abs_p90": 0.0004841089249,
+          "abs_p99": 0.001821994781,
+          "abs_p999": 0.001930713654,
+          "abs_max": 0.001930713654,
+          "normalized_p50": 0.01050281897,
+          "normalized_p90": 0.02326405421,
+          "normalized_p99": 0.03599352762,
+          "normalized_p999": 0.03837250546,
+          "normalized_max": 0.03837250546
+        }
+      },
+      "performance_confirmation": {
+        "outcome": "improved",
+        "stable": true,
+        "formal_valid": true,
+        "performance_claim_allowed": true,
+        "claim_kind": "formal",
+        "sessions": 5,
+        "warmup": 20,
+        "repetitions": 100,
+        "retest_triggered": false,
+        "active_round": 0,
+        "round_spreads": [
+          {
+            "round": 0,
+            "baseline_spread_percent": 0.7364181978106732,
+            "candidate_spread_percent": 0.28777197739375815
+          }
+        ],
+        "baseline_median_us": 16088.06419375,
+        "candidate_median_us": 712.704002857,
+        "baseline_session_spread_percent": 0.7364181978106732,
+        "candidate_session_spread_percent": 0.28777197739375815,
+        "all_sessions_not_slower": true,
+        "session_speedups": [
+          22.57327604343199,
+          22.50215205491563,
+          22.733093752250287,
+          22.6935252728839,
+          22.556353079865396
+        ],
+        "median_speedup": 22.57327604343199,
+        "bootstrap_95_lower": 22.50215205491563,
+        "bootstrap_95_upper": 22.733093752250287,
+        "gate_passed": true,
+        "gate_reason": null
+      },
+      "source_provenance": {
+        "candidate_source": "040_layernorm_sm86.cu",
+        "candidate_source_sha256": "624dbd1012348ca6075a6711139820664d1342a2a111b5dff6f27b27d67b51da",
+        "normalized_source_sha256": "b23204a21291ce0eb98db50becc614ae41b590e91369650137abf304ac4c131b",
+        "official_driver_sha256": "8425fe034e0da66bea1e5f1a89b657ed0e91bb28655bd8b37d608ca48ac1a5f6",
+        "extra_correctness_drivers": [
+          {
+            "name": "040_layernorm_edge_driver.cpp",
+            "sha256": "2ab31d063935fa5d67bc3f01f5ca6e1f8aea3062cb55f42b203cb1eeefecd31a"
+          },
+          {
+            "name": "040_resource_lifecycle_driver.cpp",
+            "sha256": "8182295aa316d068403e9ff45fd30abc513672e9a113380615ebcbf7511e64cc"
+          }
+        ],
+        "candidate_only_correctness_drivers": [],
+        "correctness_support_headers": [
+          {
+            "path": "src/kernelblaster/servers/cuda_env/correctness_metrics.h",
+            "sha256": "a36e6596b099c61f9bf5f529c10a078cc2d8083906463630f822c8ce774e2e57"
+          }
+        ],
+        "candidate_manifest_sha256": "b1af4f572f4d202da01028c4193d11250595f0ba18327443c1b997c835f02de0",
+        "git_commit": "4a8fb35712c12e9619e4603cbe7d2620097282ba",
+        "container_image": "kernelblaster-gpu:issue8-10",
+        "container_digest": "sha256:ae4d23986d0f8778103436b10a58d88ba2ae64faf87650d2b70f594f868ab487"
+      },
+      "evidence": [
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/040/run_manifest.json",
+          "size_bytes": 138040,
+          "sha256": "5551ddbcfa8826b40bc3c664771347997ecd4432f28edf8ce9cc5128e63e93b7"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/040/summary.json",
+          "size_bytes": 5274,
+          "sha256": "533ad2646ddbb540ab8f00b1733d5b76d7eee1788c2ea9e3be68d8d3da65ba61"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/040/measurements.jsonl",
+          "size_bytes": 31544,
+          "sha256": "2b7d4af6c4ae2c7baaefc3c0bf52dc664b64532c151d6500ae51f5b0afea0b81"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/040/suite_summary.json",
+          "size_bytes": 3615,
+          "sha256": "f22910dfcd0b01a3b63cc225509669cf3252af0dbc0c54e542a3e9b1139f2cc2"
+        }
+      ]
+    },
+    {
+      "task_id": "095",
+      "kernel": "Cross entropy loss",
+      "candidate": "warp_cross_entropy",
+      "evidence_run": "095-v5",
+      "suite_status": "completed",
+      "validation_gates": {
+        "candidate_only_correctness": "not_applicable",
+        "correctness": "passed",
+        "correctness_error_regression": "passed",
+        "events_stability": "passed",
+        "ncu_attribution": null,
+        "performance": true
+      },
+      "correctness_matrix": {
+        "status": "passed",
+        "correctness_error_regression": "passed",
+        "official": [
+          {
+            "mode": "original-official",
+            "passed": true,
+            "returncode": 0
+          },
+          {
+            "mode": "normalized-official",
+            "passed": true,
+            "returncode": 0
+          }
+        ],
+        "edge_distribution": {
+          "case_seed_records": 15,
+          "case_ids": [
+            "boundary-1x2",
+            "canonical",
+            "neighbor-257x10",
+            "neighbor-65x9",
+            "odd-17x7"
+          ],
+          "seeds": [
+            0,
+            42,
+            20260721
+          ],
+          "count": 15,
+          "quantile_sample_count": 15,
+          "quantile_sampling": "deterministic_stride",
+          "quantile_max_samples": 1048576,
+          "aggregate_quantile_semantics": "max_per_case_quantile_envelope",
+          "mismatch_count": 0,
+          "nonfinite_count": 0,
+          "finite": true,
+          "deterministic": true,
+          "abs_mean": 0.0005208561818,
+          "abs_rmse": 0.0006334947723,
+          "abs_p50": 0.0009741783142,
+          "abs_p90": 0.0009741783142,
+          "abs_p99": 0.0009741783142,
+          "abs_p999": 0.0009741783142,
+          "abs_max": 0.0009741783142,
+          "normalized_p50": 0.02741315588,
+          "normalized_p90": 0.02741315588,
+          "normalized_p99": 0.02741315588,
+          "normalized_p999": 0.02741315588,
+          "normalized_max": 0.02741315588
+        }
+      },
+      "resource_lifecycle": {
+        "policy": {
+          "kind": "device_workspace",
+          "ownership": "thread_device_raii",
+          "workspace_bytes": 2048,
+          "initialization_phase": "correctness_or_warmup",
+          "timed_region_allocations": false,
+          "release_phase": "host_thread_exit",
+          "stream_binding": "cudaStreamLegacy",
+          "validation_protocol": {
+            "kind": "same_thread_reuse_dual_host_thread_release_v1",
+            "same_thread_calls": 5,
+            "host_threads": 2,
+            "calls_per_host_thread": 5,
+            "warmup_thread_waves": 4,
+            "measured_thread_waves_per_group": 32,
+            "measured_groups": 2,
+            "leak_allowance_bytes": 65536,
+            "seeds": [
+              0,
+              42,
+              20260721
+            ],
+            "shape": {
+              "B": 17,
+              "classes": 7
+            },
+            "driver": "edge_drivers/095_resource_lifecycle_driver.cpp"
+          }
+        },
+        "reentrant_under_contract": true,
+        "requires_prewarm": true,
+        "status": "passed",
+        "protocols": [
+          "same_host_thread_reuse_5_calls",
+          "dual_host_thread_legacy_default_stream",
+          "thread_exit_tls_cleanup",
+          "cudaMemGetInfo_steady_state_leak_bound"
+        ],
+        "leak_allowance_bytes": 65536,
+        "distribution": {
+          "case_seed_records": 15,
+          "case_ids": [
+            "parallel-host-thread-a",
+            "parallel-host-thread-b",
+            "reuse-5-calls",
+            "thread-exit-waves-a",
+            "thread-exit-waves-b"
+          ],
+          "seeds": [
+            0,
+            42,
+            20260721
+          ],
+          "count": 15,
+          "quantile_sample_count": 15,
+          "quantile_sampling": "deterministic_stride",
+          "quantile_max_samples": 1048576,
+          "aggregate_quantile_semantics": "max_per_case_quantile_envelope",
+          "mismatch_count": 0,
+          "nonfinite_count": 0,
+          "finite": true,
+          "deterministic": true,
+          "abs_mean": 0.0004421869914,
+          "abs_rmse": 0.0004935400668,
+          "abs_p50": 0.0007905960083,
+          "abs_p90": 0.0007905960083,
+          "abs_p99": 0.0007905960083,
+          "abs_p999": 0.0007905960083,
+          "abs_max": 0.0007905960083,
+          "normalized_p50": 0.02515123412,
+          "normalized_p90": 0.02515123412,
+          "normalized_p99": 0.02515123412,
+          "normalized_p999": 0.02515123412,
+          "normalized_max": 0.02515123412
+        }
+      },
+      "performance_confirmation": {
+        "outcome": "improved",
+        "stable": true,
+        "formal_valid": true,
+        "performance_claim_allowed": true,
+        "claim_kind": "formal",
+        "sessions": 5,
+        "warmup": 20,
+        "repetitions": 100,
+        "retest_triggered": true,
+        "active_round": 1,
+        "round_spreads": [
+          {
+            "round": 0,
+            "baseline_spread_percent": 31.092434417201332,
+            "candidate_spread_percent": 1.3116916459277705
+          },
+          {
+            "round": 1,
+            "baseline_spread_percent": 3.4799461238153917,
+            "candidate_spread_percent": 2.466775472205729
+          }
+        ],
+        "baseline_median_us": 543.232023716,
+        "candidate_median_us": 19.6122032101,
+        "baseline_session_spread_percent": 3.4799461238153917,
+        "candidate_session_spread_percent": 2.466775472205729,
+        "all_sessions_not_slower": true,
+        "session_speedups": [
+          27.678263020406476,
+          27.13442572892101,
+          26.98696272024992,
+          28.601144770392562,
+          27.946681730599163
+        ],
+        "median_speedup": 27.678263020406476,
+        "bootstrap_95_lower": 26.98696272024992,
+        "bootstrap_95_upper": 28.601144770392562,
+        "gate_passed": true,
+        "gate_reason": null
+      },
+      "source_provenance": {
+        "candidate_source": "095_cross_entropy_sm86.cu",
+        "candidate_source_sha256": "1d14d4e81a8ed20b55b79510da62a8ac5c0a19a89bc7530fa69506189feee52b",
+        "normalized_source_sha256": "8b5467efc20e4a58462938005e3ce6368bd0d94a1eff34e6aa59302a06d24fc3",
+        "official_driver_sha256": "24978bd26aedb8dcfe92df3e59a8ecfe5d42cde8e94ccd0ffe0dc8c92f48f6c3",
+        "extra_correctness_drivers": [
+          {
+            "name": "095_cross_entropy_edge_driver.cpp",
+            "sha256": "b3012de855f5aa33ddcf5e3eaf7f293cd23656f69418b53824f6fb6e7fd32991"
+          },
+          {
+            "name": "095_resource_lifecycle_driver.cpp",
+            "sha256": "ce8b944c83637f16feb57ba8e19b7dd7eadb9a662515fc8a948ef6add2c7f9ec"
+          }
+        ],
+        "candidate_only_correctness_drivers": [],
+        "correctness_support_headers": [
+          {
+            "path": "src/kernelblaster/servers/cuda_env/correctness_metrics.h",
+            "sha256": "a36e6596b099c61f9bf5f529c10a078cc2d8083906463630f822c8ce774e2e57"
+          }
+        ],
+        "candidate_manifest_sha256": "b1af4f572f4d202da01028c4193d11250595f0ba18327443c1b997c835f02de0",
+        "git_commit": "4a8fb35712c12e9619e4603cbe7d2620097282ba",
+        "container_image": null,
+        "container_digest": null
+      },
+      "evidence": [
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/095/run_manifest.json",
+          "size_bytes": 145120,
+          "sha256": "b4df2d0eeeaa241643a88623538442c08f6fad9c529b9dca7876183aa107e2ab"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/095/summary.json",
+          "size_bytes": 7348,
+          "sha256": "dc2eb3afa818b8857d48da2317c63950de24b163963d0048d3163c9e95d9f919"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/095/measurements.jsonl",
+          "size_bytes": 61066,
+          "sha256": "536aa6155a34ab6f374ad54d38a9a84f212bb55cb9ac1f0d866dde2352321c3b"
+        },
+        {
+          "path": "artifacts/portfolio-v2.1/issue-10/rtx3080/095/suite_summary.json",
+          "size_bytes": 3530,
+          "sha256": "ddf8cc63b59550ec4e3c512a5a945d5a9b231fad8cc32ee752b942dc440bc1b2"
+        }
+      ]
+    }
+  ],
+  "formal_outcomes": {
+    "improved": [
+      "004",
+      "007",
+      "036",
+      "040",
+      "095"
+    ],
+    "no_improvement": [],
+    "inconclusive": []
+  },
+  "failed_attempts": [
+    {
+      "task_id": "007",
+      "evidence_run": "007-v2",
+      "status": "failed",
+      "reason": "normalized candidate-only canonical correctness timed out after 1200 seconds before timing",
+      "remediation": "row-chunked FP32 golden retained the full shape, seeds, five bitwise launches, full-element statistics, and identical global deterministic-stride quantiles",
+      "source_evidence_published": false
+    }
+  ],
+  "unsupported_paths": [
+    "fp32_or_bf16_input",
+    "noncontiguous_or_channels_last_layout",
+    "non_default_or_multiple_streams",
+    "cuda_graph_capture",
+    "backward",
+    "shapes_outside_the_manifest_whitelist"
+  ],
+  "publication": {
+    "raw_llm_logs_published": false,
+    "build_directories_published": false,
+    "session_logs_published": false,
+    "secrets_detected": false
+  },
+  "issue_close_allowed": true,
+  "remaining_blocker": null
+}

@@ -1,0 +1,214 @@
+{
+  "schema_version": "2.0",
+  "created_at": "2026-07-21T04:50:56.772713+00:00",
+  "scope": "targeted_manual_candidate_validation",
+  "agent_generated": false,
+  "environment": {
+    "gpu": "NVIDIA GeForce RTX 3080",
+    "sm": "sm_86",
+    "profiling_mode": "events_only",
+    "ncu_status": "blocked: ERR_NVGPUCTRPERM"
+  },
+  "protocol": {
+    "dtype": "fp16",
+    "stream_scope": "default_stream_only",
+    "warmup": 20,
+    "repetitions": 100,
+    "confirmation_sessions": 5,
+    "session_process_isolation": true,
+    "ordering": "AB/BA alternating",
+    "maximum_session_spread_percent": 5.0,
+    "minimum_median_speedup": 1.01,
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 20260719,
+    "bootstrap_requirement": "paired 95% lower bound > 1.0",
+    "correctness": {
+      "finite": true,
+      "determinism_repetitions": 5,
+      "maximum_error_regression": "candidate <= baseline * 1.10 + 1e-4"
+    }
+  },
+  "source_provenance": {
+    "git_base_commit": "b4e0dfb5b0d252f96d332f07ec839858143f5b49",
+    "note": "Candidate, baseline, normalized-source, Driver, raw-summary, and raw-manifest hashes bind this report to the measured inputs. Raw run directories remain ignored and append-only.",
+    "classification_note": "The raw suite summary predates the final inconclusive status patch. This report applies the committed five-session paired-bootstrap and stability gates to the recorded session medians."
+  },
+  "summary": {
+    "targeted_correctness_passed": 5,
+    "targeted_correctness_total": 5,
+    "formal_confirmation_tasks": 4,
+    "improved": 3,
+    "inconclusive": 1,
+    "exploratory": 1
+  },
+  "results": [
+    {
+      "task_id": "004",
+      "candidate": "row_block_half2",
+      "outcome": "improved",
+      "correctness_error_regression": "passed",
+      "baseline_session_medians_us": [
+        19506.687164299998,
+        19351.5520096,
+        19587.5835419,
+        19908.0963135,
+        19850.75187685
+      ],
+      "candidate_session_medians_us": [
+        107.519996166,
+        107.690662146,
+        107.519996166,
+        107.929599285,
+        107.008004189
+      ],
+      "baseline_session_spread_percent": 2.8759672796471625,
+      "candidate_session_spread_percent": 0.86123940258922,
+      "performance_gate": {
+        "passed": true,
+        "median_speedup": 182.17619271171432,
+        "bootstrap_95_lower": 179.69572871011252,
+        "bootstrap_95_upper": 185.50716862066827
+      },
+      "hashes": {
+        "candidate_source_sha256": "896fe35685ca50142d1eb9dcae9e398d6d158b2a059aceda87c6cf6c2c4ff107",
+        "candidate_normalized_sha256": "4f854d900c206b655a21430a5a1763b6cdd20ff1a26ef02be39df0444c9e6036",
+        "baseline_source_sha256": "8beb4786b3dbea3e23252ac892caa3fb6cf52b934d01194ee1460271143d7a27",
+        "driver_sha256": "e8e5fb659042a4e84a7c17d41c08f9c970500c841f8fdf6033dd19634292b4c6",
+        "raw_summary_sha256": "2714358a865bc1d1883038b44c005a876a11ddd649759e1b0c173e71ced8ac98",
+        "raw_manifest_sha256": "2bcabbe794e0e8d3d6b825215a59871a3197dd7326375a07c977454e56a6c2d2"
+      }
+    },
+    {
+      "task_id": "007",
+      "candidate": "cublas_gemm_ex",
+      "outcome": "inconclusive",
+      "reason": "The candidate was stable, but the upstream baseline session spread was 13.779%, above the 5% gate.",
+      "correctness_error_regression": "passed",
+      "baseline_session_medians_us": [
+        9163.263797759999,
+        10060.28795245,
+        10425.85611345,
+        9794.5599556,
+        9858.5600853
+      ],
+      "candidate_session_medians_us": [
+        830.976009369,
+        830.9760093689999,
+        830.976009369,
+        828.927993774,
+        832.000017166
+      ],
+      "baseline_session_spread_percent": 13.778849365862932,
+      "candidate_session_spread_percent": 0.3706019600102417,
+      "diagnostic_performance_gate": {
+        "paired_bootstrap_passed": true,
+        "median_speedup": 11.849230627278974,
+        "bootstrap_95_lower": 11.027109921883431,
+        "bootstrap_95_upper": 12.546518787427873,
+        "formal_claim_allowed": false
+      },
+      "hashes": {
+        "candidate_source_sha256": "319f2547c21b60cf2b5a16faa50ef59d3c3b47060c910e80a6adad147414d79c",
+        "candidate_normalized_sha256": "e7a5f933ad28e662b5d9d024fefff7841d79355c04fa9deb38af75ea0748ac05",
+        "baseline_source_sha256": "2c9a2da66dbded6a90f69beacf3f45445d7f9d600bd39343c261469d64c41f78",
+        "driver_sha256": "d0cdbed7000b8d81bc1c374f78e616290ebe9adb932b0a59238e9b613d024795",
+        "raw_summary_sha256": "b14b5eda27ee8e621a6db5d4969e370f7a086f6830e3c2a965a1dd0bbb2d2611",
+        "raw_manifest_sha256": "ce043e410d98945d26a5ad2fa3ecff87a8257d4d8d136e9caff5de228ff12580"
+      }
+    },
+    {
+      "task_id": "036",
+      "candidate": "rmsnorm_v3c",
+      "outcome": "improved",
+      "correctness_error_regression": "passed",
+      "baseline_session_medians_us": [
+        33468.416214,
+        33543.1690216,
+        33637.88795475,
+        33539.58511355,
+        33537.5366211
+      ],
+      "candidate_session_medians_us": [
+        595.456004143,
+        595.456004143,
+        596.992015839,
+        595.456004143,
+        594.944000244
+      ],
+      "baseline_session_spread_percent": 0.5063631922896494,
+      "candidate_session_spread_percent": 0.3442367002877811,
+      "performance_gate": {
+        "passed": true,
+        "median_speedup": 56.33190158167343,
+        "bootstrap_95_lower": 56.20636282300798,
+        "bootstrap_95_upper": 56.370913241154625
+      },
+      "hashes": {
+        "candidate_source_sha256": "e5b37156dbc7cce22b225ee69a2ddd4b179bc280421e46e23e4cff1d2d777f7b",
+        "candidate_normalized_sha256": "419d070ac8235eae06d5ce637f070116f9c5b798e2832ebb8d097179ab31596e",
+        "baseline_source_sha256": "bb1189a1e6384af59caa0688a72d064df814a990f90b70df04e38b1e26ad2d42",
+        "driver_sha256": "31e64739cf1e77c9db74668c04f9980abe874d21a06907dc739388a323a0053e",
+        "raw_summary_sha256": "b082ea4c4dc5e4621de3a5268e9bdfab971b4aecc48aec7e45b98010e0cbeacb",
+        "raw_manifest_sha256": "c613b84a50e6419c21bc3c8dee454199ee77829e7cf2ecc05a4cc94229b5ffc4"
+      }
+    },
+    {
+      "task_id": "040",
+      "candidate": "multiblock_layernorm",
+      "outcome": "improved",
+      "correctness_error_regression": "passed",
+      "baseline_session_medians_us": [
+        16145.4086304,
+        16104.4473648,
+        15877.63261795,
+        16139.7752762,
+        16097.792625400001
+      ],
+      "candidate_session_medians_us": [
+        699.1360187529999,
+        689.152002335,
+        688.8960003855,
+        699.904024601,
+        690.68801403
+      ],
+      "baseline_session_spread_percent": 1.68649835207344,
+      "candidate_session_spread_percent": 1.5979225034460809,
+      "performance_gate": {
+        "passed": true,
+        "median_speedup": 23.093372673313894,
+        "bootstrap_95_lower": 23.047938453794217,
+        "bootstrap_95_upper": 23.368498256167808
+      },
+      "hashes": {
+        "candidate_source_sha256": "21fe8b21d6f8a5b09e910d4a569484778bf823ac13fd41d9e383256566aca65a",
+        "candidate_normalized_sha256": "f968cb248b2659cee615f245b7eef5cd4540eefcdfae199023f8c237324c2cbe",
+        "baseline_source_sha256": "c0a217f7ceed27fa92a0de4856f55204a5512c648aff116a61e719441decaeed",
+        "driver_sha256": "8425fe034e0da66bea1e5f1a89b657ed0e91bb28655bd8b37d608ca48ac1a5f6",
+        "raw_summary_sha256": "274858f30c12af3141b9ccf053ccddfd81b597599fb578187fb830a703258d25",
+        "raw_manifest_sha256": "f5bb7222cd9f9cce4c62c987ea20e80d1798b585d0982b300f9350d2b001795d"
+      }
+    },
+    {
+      "task_id": "095",
+      "candidate": "warp_cross_entropy",
+      "outcome": "exploratory",
+      "reason": "Official and boundary correctness passed, but only a one-session diagnostic timing run was collected; no formal performance claim is made.",
+      "correctness_error_regression": "passed",
+      "hashes": {
+        "candidate_source_sha256": "d408d254fb65aa373040163f4a9335b1785522bdc63c17ceb8eebaecc7ffefd7",
+        "candidate_normalized_sha256": "dca78c62183ff04110ca3070cc2fb44c5b66a2736c28d6871f7ac8dce5b89761",
+        "baseline_source_sha256": "35b4aba8bbcf85ee1c55ae25d17edea8e7b20545a63abd7a1365a5fd99f03b60",
+        "driver_sha256": "24978bd26aedb8dcfe92df3e59a8ecfe5d42cde8e94ccd0ffe0dc8c92f48f6c3",
+        "raw_summary_sha256": "f250ad256d0388d24d39e7a40612db2b9ba42aa14bcd077f5a0bb9e41cbd45cf",
+        "raw_manifest_sha256": "7c551561450147d53766437ff10d1c8fbbc052c672066059f5a40eaf0eb5e1b4"
+      }
+    }
+  ],
+  "limitations": [
+    "This is a targeted five-task manual validation, not a full Core 10 Agent search.",
+    "NCU counter attribution was unavailable locally; no hardware-counter bottleneck claim is made.",
+    "Candidates with static resources remain non-reentrant and are scoped to default-stream FP16 inference-forward research use.",
+    "The 007 diagnostic speedup is excluded from formal results because its upstream baseline was unstable.",
+    "The 095 result remains exploratory until a five-session confirmation run passes all gates."
+  ]
+}

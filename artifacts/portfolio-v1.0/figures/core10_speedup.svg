@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="420" viewBox="0 0 900 420">
+<rect width="100%" height="100%" fill="white"/>
+<text x="20" y="30" font-family="sans-serif" font-size="20">Core 10 CUDA Events Speedup (higher is better)</text>
+<line x1="183.1" y1="45" x2="183.1" y2="400" stroke="#555" stroke-dasharray="4 4"/>
+<text x="10" y="75" font-family="sans-serif" font-size="12">004 Matrix-vector multiplication</text>
+<rect x="170" y="58" width="13.1" height="22" fill="#bdbdbd"/>
+<text x="188.1" y="74" font-family="sans-serif" font-size="12">1.000x</text>
+<text x="10" y="109" font-family="sans-serif" font-size="12">007 Small-K matrix multiplication</text>
+<rect x="170" y="92" width="13.1" height="22" fill="#bdbdbd"/>
+<text x="188.1" y="108" font-family="sans-serif" font-size="12">1.000x</text>
+<text x="10" y="143" font-family="sans-serif" font-size="12">019 ReLU</text>
+<rect x="170" y="126" width="13.1" height="22" fill="#bdbdbd"/>
+<text x="188.1" y="142" font-family="sans-serif" font-size="12">1.000x</text>
+<text x="10" y="177" font-family="sans-serif" font-size="12">023 Softmax</text>
+<rect x="170" y="160" width="13.1" height="22" fill="#bdbdbd"/>
+<text x="188.1" y="176" font-family="sans-serif" font-size="12">1.000x</text>
+<text x="10" y="211" font-family="sans-serif" font-size="12">026 GELU</text>
+<rect x="170" y="194" width="13.1" height="22" fill="#bdbdbd"/>
+<text x="188.1" y="210" font-family="sans-serif" font-size="12">1.000x</text>
+<text x="10" y="245" font-family="sans-serif" font-size="12">036 RMSNorm</text>
+<rect x="170" y="228" width="647.6" height="22" fill="#2c7fb8"/>
+<text x="822.6" y="244" font-family="sans-serif" font-size="12">49.348x</text>
+<text x="10" y="279" font-family="sans-serif" font-size="12">040 LayerNorm</text>
+<rect x="170" y="262" width="13.1" height="22" fill="#bdbdbd"/>
+<text x="188.1" y="278" font-family="sans-serif" font-size="12">1.000x</text>
+<text x="10" y="313" font-family="sans-serif" font-size="12">047 Sum reduction</text>
+<rect x="170" y="296" width="13.1" height="22" fill="#bdbdbd"/>
+<text x="188.1" y="312" font-family="sans-serif" font-size="12">1.000x</text>
+<text x="10" y="347" font-family="sans-serif" font-size="12">088 MinGPT GELU</text>
+<rect x="170" y="330" width="13.1" height="22" fill="#bdbdbd"/>
+<text x="188.1" y="346" font-family="sans-serif" font-size="12">1.000x</text>
+<text x="10" y="381" font-family="sans-serif" font-size="12">095 Cross entropy loss</text>
+<rect x="170" y="364" width="13.1" height="22" fill="#bdbdbd"/>
+<text x="188.1" y="380" font-family="sans-serif" font-size="12">1.000x</text>
+</svg>

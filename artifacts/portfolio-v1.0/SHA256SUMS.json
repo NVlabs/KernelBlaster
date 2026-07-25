@@ -1,0 +1,22 @@
+{
+    "environment/environment.json":  "6bc3078a45743907d4d1a32b6375da1fc1c1419721bf8e2634866c8d1c6888bf",
+    "figures/core10_rtx3080_comparison.svg":  "f17e1319466e6508d0e639a5b333ad5bbbb988b427924f8ba5b6d8cecd7cc862",
+    "figures/core10_speedup.svg":  "01f632ca6c5c8f49f553230a5d25ecca1ce10fa20af998018d3710e9c29fd523",
+    "manifests/analysis-output-SHA256SUMS.json":  "62aa6a6a609ed72c41062ca3d94c34376e429af0168e0e31cc240c314c10fc12",
+    "manifests/core10_rtx3080_raw_sha256.csv":  "481695ab1fdd0b3a692c7b1362a904ff180c5dc511bb9ef2d7881c12822152ba",
+    "manifests/core10_rtx3080_SHA256SUMS.json":  "f2e33bd312ff0af002a24b7d94d2760584ca956b6e8f3768561ef72d00b2ef63",
+    "manifests/raw_artifact_sha256.csv":  "c3956a90c24ad224ad2690edb23a49afc78963dd3ee3ba1b62f921a73edc2739",
+    "README.md": "fc8dd048b6e6687da3cdc14a929202c215b198514f6a561deef6ea8796cf7c3c",
+    "reports/core10-rtx3080-comparison.zh-CN.md":  "afcfd2ec9ef11650153c020b65d44e9960545522adeb4fadce2ed86547c822ad",
+    "reports/core10-rtx3080-summary.en.md":  "2047cad20180da76f74fa448f206876debacef154a81386a981fde55d475004e",
+    "reports/validation-report.zh-CN.md": "54dec1b350d1832e0c7d5e9ab76873868e34005da07ac01d4fe9907e82b769e9",
+    "reports/validation-summary.en.md": "a41d2a80c6a8a7f7d3274b7cb7c117f31bb872b98c7117569b14db19b8908095",
+    "results/analysis_summary.json":  "b5c5718e4ebff3d4777e6d80965682f08a6abf5e12b953e43132646c136f3dd5",
+    "results/api_usage.csv":  "2c362637837204bae3f9c09a766395316604b2d73985a90511af0952fcb44a88",
+    "results/core10_results.csv":  "738990db27d735d2a0f1c1a314b24bc3e462b5389d81ccd3823ed5e9332e53c0",
+    "results/core10_rtx3080_comparison.csv":  "02c845f1dba433e0175b36eefcd02ac0f04aca91e0638a69ed4a9aa0930d255f",
+    "results/core10_rtx3080_comparison.json":  "11bc9bf2bddcce191bf9092743ef03acd89f42166c93492ba118efa211fcae0f",
+    "results/deep_case_results.csv":  "1b57460c7b35486b918f28d8de414eecfe6a5e1bb98c16a43fd78530d0be586e",
+    "results/failure_classification.csv":  "c05c15aa6eb38985377b7bf85a42f50411effd49d6243a4c12a0d58df23ad0e0",
+    "results/pytorch_core10_rtx3080.csv":  "86abb8d0638a95b3676e3cbf47baf5ec4907dd38957d7e482e9f389bb646b6c2"
+}

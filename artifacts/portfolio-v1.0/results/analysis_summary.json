@@ -1,0 +1,53 @@
+{
+  "agent_portfolio_score_all_tasks_unoptimized_as_one": 1.0,
+  "agent_verified_improved_tasks": 0,
+  "baseline_attempted_tasks": 10,
+  "baseline_covered_tasks": 10,
+  "baseline_stable_tasks": 7,
+  "deep_case_gate": {
+    "checks": {
+      "all_sessions_not_slower": true,
+      "candidate_comparison": true,
+      "formal_valid": true,
+      "minimum_speedup": true
+    },
+    "minimum_speedup": 1.05,
+    "observed_speedup": 49.34767666277694,
+    "passed": true
+  },
+  "estimated_api_cost_usd": 0.0,
+  "failure_counts": {
+    "baseline_stability": 3,
+    "provider_api": 3
+  },
+  "formally_measured_tasks": 1,
+  "generated_at": "2026-07-19T07:53:02.260926+00:00",
+  "geomean_measured_candidates": 49.34767666277695,
+  "llm": {
+    "completion_tokens": 0,
+    "prompt_tokens": 0,
+    "requests_completed": 0,
+    "requests_failed": 1,
+    "requests_started": 1,
+    "retries": 0,
+    "total_tokens": 0
+  },
+  "manual_verified_improved_tasks": 1,
+  "model": "gpt-5.6-terra",
+  "ncu": {
+    "attribution_allowed": false,
+    "completed_profiles": 0,
+    "failure_types": [
+      "ERR_NVGPUCTRPERM"
+    ]
+  },
+  "portfolio_score_all_tasks_unoptimized_as_one": 1.4768169594231786,
+  "pricing_assumption": {
+    "cache_and_regional_uplift_excluded": true,
+    "input_per_million": 2.5,
+    "output_per_million": 15.0
+  },
+  "schema_version": "1.0",
+  "total_tasks": 10,
+  "verified_improved_tasks": 1
+}

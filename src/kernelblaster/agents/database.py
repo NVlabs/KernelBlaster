@@ -13,30 +13,54 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Enhanced Database utility for GPU optimization with LLM-powered qualitative state analysis.
+增强的数据库实用程序，用于通过 LLM 支持的定性状态分析进行 GPU 优化。
 
-This module implements a two-LLM agent system:
-1. State Summarizer Agent: Analyzes NCU reports qualitatively
-2. State Matcher Agent: Matches current state against known optimization patterns
+该模块实现了两个LLM代理系统：
+1. State Summarizer Agent：定性分析 NCU 报告
+2. 状态匹配器代理：将当前状态与已知优化模式进行匹配
 """
 from __future__ import annotations
 from pathlib import Path
+import os
 import shutil
 import re
 import json
-import itertools  # Added to support fallback logic using itertools.chain
+import itertools  # 添加以支持使用 itertools.chain 的回退逻辑
 from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 import threading
 
+from ..measurements import Measurement
+
 def get_elapsed_cycles_v2(text: str) -> int:
+    """
+    获取 `get_elapsed_cycles_v2` 对应的领域操作，并返回调用方所需的标准化结果。
+
+    参数:
+        text: 调用方提供的 `text` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+    异常:
+        ValueError: 输入、外部调用或状态不满足执行要求时抛出。
+    """
     groups = re.search(r"Elapsed Cycles: (\d+)", text)
     if groups is None:
         raise ValueError("No elapsed cycles found in text")
     return int(groups.group(1))
 
 def get_speedup_from_files(soln_file: Path) -> Tuple[int, int, float]:
+    """
+    获取 `get_speedup_from_files` 对应的领域操作，并返回调用方所需的标准化结果。
+
+    参数:
+        soln_file: 调用方提供的 `soln_file` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+    """
     final_text = soln_file.read_text()
     if (soln_file.parent /"ncu/0_init_ncu_log.txt").exists():
         initial_text = (soln_file.parent /"ncu/0_init_ncu_log.txt").read_text()
@@ -48,15 +72,32 @@ def get_speedup_from_files(soln_file: Path) -> Tuple[int, int, float]:
     return initial_elapsed_cycles, final_elapsed_cycles, speedup_ratio
 
 class LLMInterface:
-    """Interface for LLM queries used in state analysis."""
+    """状态分析中使用的 LLM 查询接口。"""
     
     def __init__(self, model_name: str = None, logger = None):
+        """
+        初始化 LLMInterface 实例，并保存后续流程所需的配置与依赖。
+
+        参数:
+            model_name: 调用方提供的 `model_name` 参数。
+            logger: 记录诊断信息和任务进度的日志器。
+        """
         from ..config import config
         self.model_name = model_name or config.MODEL
         self.logger = logger
     
     async def query(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.1) -> str:
-        """Send a query to the LLM and return the response."""
+        """
+        向 LLM 发送查询并返回响应。
+
+        参数:
+            prompt: 调用方提供的 `prompt` 参数。
+            max_tokens: 调用方提供的 `max_tokens` 参数。
+            temperature: 调用方提供的 `temperature` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         try:
             from .utils import generate_code_retry
         except ImportError:
@@ -81,7 +122,17 @@ class LLMInterface:
             return f"Error: {str(e)}"
     
     def query_sync(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.1) -> str:
-        """Synchronous wrapper for LLM queries."""
+        """
+        LLM 查询的同步包装器。
+
+        参数:
+            prompt: 调用方提供的 `prompt` 参数。
+            max_tokens: 调用方提供的 `max_tokens` 参数。
+            temperature: 调用方提供的 `temperature` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         import asyncio
         try:
             loop = asyncio.get_event_loop()
@@ -95,7 +146,12 @@ class LLMInterface:
             return self._mock_response()
     
     def _mock_response(self) -> str:
-        """Fallback mock response for when LLM is not available."""
+        """
+        当 LLM 不可用时的后备模拟响应。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         return """
         PRIMARY_BOTTLENECK: memory_bound
         SECONDARY_CHARACTERISTICS:
@@ -106,9 +162,14 @@ class LLMInterface:
         """
     
     def is_available(self) -> bool:
-        """Check if LLM service is available."""
-        # This should be a lightweight availability check. We intentionally avoid
-        # making network calls here; we only check for configured credentials.
+        """
+        检查LLM服务是否可用。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
+        # 这应该是一个轻量级的可用性检查。我们刻意回避
+        # 在这里进行网络调用；我们只检查配置的凭据。
         try:
             from ..config import config
         except Exception:
@@ -116,12 +177,12 @@ class LLMInterface:
 
         import os
 
-        # Prefer explicit config value if present.
+        # 首选显式配置值（如果存在）。
         if config is not None and bool(getattr(config, "API_KEY", None)):
             return True
 
-        # Common env vars used across our supported LLM backends.
-        # Note: keep this in sync with the client selection logic in utils/query.py.
+        # 在我们支持的 LLM 后端中使用的常见环境变量。
+        # 注意：使其与 utils/query.py 中的客户端选择逻辑保持同步。
         if os.getenv("OAI_ATLAS_KEY") or os.getenv("OPENAI_API_KEY"):
             return True
         if os.getenv("NIM_KEY") or os.getenv("CHIPNEMO_KEY") or os.getenv("NGC_KEY"):
@@ -131,7 +192,7 @@ class LLMInterface:
         if os.getenv("EOS_BASE_URL"):
             return True
 
-        # LLM gateway-style credentials (if used).
+        # LLM 网关式凭证（如果使用）。
         if os.getenv("LLM_GATEWAY_URL") and (os.getenv("LLM_GATEWAY_KEY") or os.getenv("LLM_GATEWAY_TOKEN")):
             return True
 
@@ -140,33 +201,36 @@ class LLMInterface:
 
 @dataclass
 class StateProfile:
-    """Qualitative state profile with primary and secondary characteristics."""
+    """具有主要和次要特征的定性状态概况。"""
     state_name: str
-    primary_bottleneck: str  # memory_bound, compute_bound, latency_bound, hybrid_bound
+    primary_bottleneck: str  # 支持的状态标签：memory_bound、compute_bound、latency_bound、hybrid_bound。
     secondary_characteristics: List[str]
     performance_signature: str
     context_description: str
-    relative_patterns: Dict[str, str]  # Qualitative patterns instead of numerical values
+    relative_patterns: Dict[str, str]  # 定性模式而不是数值
 
 @dataclass
 class OptimizationEntry:
+    """封装 `OptimizationEntry` 对应的领域状态与操作。"""
     technique: str
     predicted_improvement: Optional[float] = None
     description: str = ""
-    category: str = ""  # memory, compute, latency, etc.
+    category: str = ""  # 内存、计算、延迟等
     actual_improvement: Optional[float] = None
     confidence_score: float = 0.5
     last_updated: Optional[str] = None
     usage_count: int = 0
-    # Speedup tracking fields
-    predicted_speedup: float = 1.0  # Expected speedup (ratio)
-    actual_speedup: Optional[float] = None  # Most recent speedup measurement
-    initial_elapsed_cycles: Optional[int] = None  # Baseline elapsed cycles
+    # 加速跟踪字段
+    predicted_speedup: float = 1.0  # 预期加速（比率）
+    actual_speedup: Optional[float] = None  # 最近的加速测量
+    initial_elapsed_cycles: Optional[int] = None  # 基线经过周期
+    initial_measurement: Optional[dict[str, Any]] = None
+    last_measurement: Optional[dict[str, Any]] = None
 
 
 @dataclass
 class CompositeOptimization:
-    """Represents a composite optimization with multiple techniques."""
+    """代表多种技术的复合优化。"""
     state: str
     technique1: str
     technique2: Optional[str] = None
@@ -182,16 +246,34 @@ class CompositeOptimization:
     usage_count: int = 0
     
     def get_composite_id(self) -> str:
-        """Generate a unique ID for this composite optimization."""
+        """
+        为此复合优化生成唯一的 ID。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         techniques = [t for t in [self.technique1, self.technique2, self.technique3] if t]
         params_str = "_".join(f"{k}_{v}" for k, v in self.parameters_to_fine_tune.items())
         return f"composite_{'+'.join(techniques)}_{params_str}"
 
 
 class GPUOptimizationDatabase:
-    """Enhanced database with LLM-powered qualitative state analysis."""
+    """维护 GPU 性能状态与历史优化经验，并使用 LLM 辅助状态分析和策略检索。"""
     
-    def __init__(self, optimization_db_path: Path, gpu_report_path: Path, llm_interface=None):
+    def __init__(
+        self,
+        optimization_db_path: Path,
+        gpu_report_path: Path | None,
+        llm_interface=None,
+    ):
+        """
+        初始化 GPUOptimizationDatabase 实例，并保存后续流程所需的配置与依赖。
+
+        参数:
+            optimization_db_path: 调用方提供的 `optimization_db_path` 参数。
+            gpu_report_path: 调用方提供的 `gpu_report_path` 参数。
+            llm_interface: 调用方提供的 `llm_interface` 参数。
+        """
         import os
         self.optimization_db_path = optimization_db_path
         self.optimization_db_header_path = optimization_db_path.with_name(f"{optimization_db_path.stem}_header{optimization_db_path.suffix}") 
@@ -199,8 +281,8 @@ class GPUOptimizationDatabase:
         self.gpu_report_path = gpu_report_path
         self.llm_interface = llm_interface or LLMInterface()
 
-        # Log env-driven behaviour once at startup so runs are easy to audit from run.log.
-        # Note: this flag only affects the database *fallback* chooser, not LLM plan selection.
+        # 在启动时记录一次环境驱动的行为，以便从 run.log 轻松审核运行。
+        # 注意：此标志仅影响数据库*后备*选择器，而不影响LLM计划选择。
         try:
             raw_val = os.getenv("KERNELAGENT_DB_FALLBACK_TOP1", None)
             parsed_val = os.getenv("KERNELAGENT_DB_FALLBACK_TOP1", "0") in (
@@ -219,21 +301,21 @@ class GPUOptimizationDatabase:
             else:
                 print(msg)
         except Exception:
-            # Never let env logging break DB init.
+            # 切勿让环境日志记录破坏数据库初始化。
             pass
 
-        # ---------- LLM interaction logging ----------
-        # Prompts and outputs will be appended to this file so that we can
-        # inspect the reasoning of the database-level agents.
+        # ---------- LLM交互记录----------
+        # 提示和输出将附加到该文件中，以便我们可以
+        # 检查数据库级代理的推理。
         self._llm_log_fp: Path = self.optimization_db_path.parent / "database_llm_log.txt"
-        # Log file that captures every change made to the optimisation database
-        # (e.g. updates to measured improvements, newly added techniques, etc.).
+        # 捕获对优化数据库所做的每个更改的日志文件
+        # （e.g。更新测量的改进、新添加的技术等）。
         self._db_change_log_fp: Path = self.optimization_db_path.parent / "database_change_log.txt"
-        # Path where a live JSON snapshot of the database will be stored.
+        # 存储数据库实时 JSON 快照的路径。
         self._persist_json_fp: Path = self.optimization_db_path.with_suffix(".json")
 
-        # Ensure the LLM log file exists so users can reliably find it even if
-        # the run ends up taking deterministic fallback paths.
+        # 确保 LLM 日志文件存在，以便用户可以可靠地找到它，即使
+        # 运行最终采取确定性后备路径。
         try:
             self._llm_log_fp.parent.mkdir(parents=True, exist_ok=True)
             with open(self._llm_log_fp, "a", encoding="utf-8"):
@@ -241,55 +323,69 @@ class GPUOptimizationDatabase:
         except Exception:
             pass
 
-        # Serialize concurrent writes across tasks sharing this instance (re-entrant for nested writes)
+        # 跨共享此实例的任务序列化并发写入（嵌套写入的可重入）
         self._io_lock: threading.RLock = threading.RLock()
 
-        # Database structures
+        # 数据库结构
         self.known_states: Dict[str, StateProfile] = {}
-        self.optimization_strategies: Dict[str, Dict[str, Any]] = {} # Changed to Dict[str, Dict[str, Any]]
+        self.optimization_strategies: Dict[str, Dict[str, Any]] = {} # 更改为 Dict[str, Dict[str, Any]]
         self.composite_optimizations: Dict[str, List[CompositeOptimization]] = {}
-        self.discovered_states: Dict[str, Dict[str, Any]] = {}  # Track AI-discovered states
-        # Cache of LLM-recommended optimizations keyed by state name so that callers can
-        # retrieve them directly without having to run additional selection logic.
-        # self._llm_recommended_optimizations: Dict[str, OptimizationEntry | CompositeOptimization] = {}
+        self.discovered_states: Dict[str, Dict[str, Any]] = {}  # 跟踪人工智能发现的状态
+        # 按状态名称键入 LLM 建议的优化的缓存，以便调用者可以
+        # 直接检索它们，无需运行额外的选择逻辑。
+        # self._llm_recommended_optimizations: 字典[str, OptimizationEntry |复合优化] = {}
         self._llm_recommended_optimizations: Dict[str, OptimizationEntry] = {}
         
-        # Load comprehensive optimization knowledge
+        # 加载综合优化知识
         self.gpu_optimization_knowledge = ""
         self.load_databases()
 
-        # Create an iniital json from the loaded llm database using _persist_database
+        # 使用 _persist_database 从加载的 llm 数据库创建初始 json
         self._persist_database()
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        # print(self.optimization_strategies)
+        # 打印(self.optimization_strategies)
         print(f"Persisted database to {self._persist_json_fp}")
 
-        # exit(0)
+        # 退出(0)
 
     # ------------------------------------------------------------------
-    # Helper: persist LLM prompt / response pairs for debugging
+    # Helper：保留 LLM 提示/响应对以进行调试
     # ------------------------------------------------------------------
     def _log_llm_interaction(self, label: str, prompt: str, response: str):
-        """Append a labelled prompt / response pair to the shared log file."""
+        """
+        将带标签的提示/响应对附加到共享日志文件。
+
+        参数:
+            label: 调用方提供的 `label` 参数。
+            prompt: 调用方提供的 `prompt` 参数。
+            response: 需要解析或规范化的服务响应。
+        """
         try:
-            with open(self._llm_log_fp, "a", encoding="utf-8") as f:
-                f.write(f"=== {label} | {datetime.now().isoformat()} ===\n")
-                f.write("--- PROMPT ---\n")
-                f.write(prompt.strip() + "\n")
-                f.write("--- RESPONSE ---\n")
-                f.write((response or "<empty response>").strip() + "\n\n")
+            with self._io_lock:
+                with open(self._llm_log_fp, "a", encoding="utf-8") as f:
+                    f.write(f"=== {label} | {datetime.now().isoformat()} ===\n")
+                    f.write("--- PROMPT ---\n")
+                    f.write(prompt.strip() + "\n")
+                    f.write("--- RESPONSE ---\n")
+                    f.write((response or "<empty response>").strip() + "\n\n")
         except Exception as e:
-            # Logging failure should never crash the optimisation process
+            # 日志记录失败决不应该使优化过程崩溃
             if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                 self.llm_interface.logger.warning(f"Failed to write LLM log: {e}")
 
     # ------------------------------------------------------------------
-    # Helper: persist structural changes to the optimisation database
+    # Helper：将结构更改持久保存到优化数据库
     # ------------------------------------------------------------------
     def _log_db_change(self, action: str, details: Any):
-        """Write a record of *action* together with *details* to the change log."""
-        # Log the file write, with the file path
-        # Write to logger
+        """
+        将*操作* 的记录与*详细信息* 一起写入更改日志。
+
+        参数:
+            action: 调用方提供的 `action` 参数。
+            details: 调用方提供的 `details` 参数。
+        """
+        # 记录文件写入，包含文件路径
+        # 写入记录器
         if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
             self.llm_interface.logger.info(f"=== {action} | {datetime.now().isoformat()} ===\n")
         try:
@@ -305,45 +401,49 @@ class GPUOptimizationDatabase:
                     f.write(f"=== {action} | {datetime.now().isoformat()} ===\n")
                     f.write(details.strip() + "\n\n")
 
-            # After logging, persist the full database snapshot so that we
-            # always have an up-to-date machine-readable version.
+            # 日志记录后，保留完整的数据库快照，以便我们
+            # 始终拥有最新的机器可读版本。
             self._persist_database()
         except Exception as e:
-            # Never fail hard on logging – just emit a warning if possible.
+            # 永远不要在日志记录方面失败——如果可能的话，只发出警告。
             if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                 self.llm_interface.logger.warning(f"Failed to write DB change log: {e}")
 
     # ------------------------------------------------------------------
-    # Helper: persist the entire optimisation database as JSON
+    # Helper：将整个优化数据库持久保存为 JSON
     # ------------------------------------------------------------------
     def _persist_database(self):
-        """Dump the current in-memory database state to *self._persist_json_fp*."""
+        """将当前内存数据库状态转储到*self._persist_json_fp*。"""
 
         print(f"_persist_database: Persisting database to {self._persist_json_fp}")
-        # log this
-        self.llm_interface.logger.info(f"_persist_database: Persisting database to {self._persist_json_fp}")
+        database_logger = getattr(self.llm_interface, "logger", None)
+        if database_logger is not None:
+            database_logger.info(
+                f"_persist_database: Persisting database to {self._persist_json_fp}"
+            )
         try:
             import json as _json
             from dataclasses import asdict as _asdict
 
-            # Convert optimization strategies to a list of dictionaries
+            # 将优化策略转换为字典列表
             optimization_strategies = {}
             for k, v in self.optimization_strategies.items():
-                # Normalize secondary_characteristics - it might be a string from markdown parsing
+                # 规范化 secondary_characteristics - 它可能是来自 markdown 解析的字符串
                 secondary_chars = v.get("secondary_characteristics", [])
                 if isinstance(secondary_chars, str):
-                    # If it's a string, try to parse it as a comma-separated list
+                    # 如果是字符串，请尝试将其解析为逗号分隔的列表
                     secondary_chars = [s.strip() for s in secondary_chars.split(",") if s.strip()]
                 
                 optimization_strategies[k] = {
                     "optimizations": [_asdict(o) for o in v.get("optimizations", [])],
                     "primary_bottleneck": v.get("primary_bottleneck", ""),
                     "secondary_characteristics": secondary_chars if isinstance(secondary_chars, list) else [],
-                    # "performance_signature": v["performance_signature"],
-                    # "context_description": v["context_description"]
+                    # 可选兼容字段示例："performance_signature": v["performance_signature"],
+                    # 可选兼容字段示例："context_description": v["context_description"]
                 }
 
             data = {
+                "schema_version": "3.0",
                 "known_states": {k: _asdict(v) for k, v in self.known_states.items()},
                 "optimization_strategies": optimization_strategies,
                 "composite_optimizations": {
@@ -352,41 +452,53 @@ class GPUOptimizationDatabase:
                 "discovered_states": self.discovered_states,
             }
 
-            # Guard snapshot writes as well
+            # 保护快照写入
             if hasattr(self, "_io_lock"):
                 with self._io_lock:
-                    with open(self._persist_json_fp, "w", encoding="utf-8") as fp:
+                    temporary = self._persist_json_fp.with_suffix(
+                        self._persist_json_fp.suffix + ".tmp"
+                    )
+                    with open(temporary, "w", encoding="utf-8") as fp:
                         _json.dump(data, fp, indent=2)
+                        fp.flush()
+                        os.fsync(fp.fileno())
+                    os.replace(temporary, self._persist_json_fp)
             else:
-                with open(self._persist_json_fp, "w", encoding="utf-8") as fp:
+                temporary = self._persist_json_fp.with_suffix(
+                    self._persist_json_fp.suffix + ".tmp"
+                )
+                with open(temporary, "w", encoding="utf-8") as fp:
                     _json.dump(data, fp, indent=2)
+                    fp.flush()
+                    os.fsync(fp.fileno())
+                os.replace(temporary, self._persist_json_fp)
         except Exception as e:
-            # Fail-soft – we only warn if persistence fails.
+            # 软失败 – 我们仅在持久性失败时发出警告。
             print(f"_persist_database: Failed to persist database JSON: {e}")
             if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                 self.llm_interface.logger.warning(f"Failed to persist database JSON: {e}")
     
     def load_databases(self):
-        """Load optimization database and GPU optimization report."""
+        """加载优化数据库和GPU优化报告。"""
         print(f"Loading databases from {self.optimization_db_path} and {self.gpu_report_path}")
-        # Load GPU optimization report as comprehensive knowledge base
-        if self.gpu_report_path.exists():
+        # 加载 GPU 优化报告作为综合知识库
+        if self.gpu_report_path is not None and self.gpu_report_path.exists():
             self.gpu_optimization_knowledge = self.gpu_report_path.read_text()
             print(f"Loaded GPU optimization report: {len(self.gpu_optimization_knowledge)} characters")
-        else:
+        elif self.gpu_report_path is not None:
             print(f"Warning: GPU optimization report not found at {self.gpu_report_path}")
         
-        # Get default location in data/kernelblaster for fallback
-        # Repo root is the project root (e.g. /path/to/KernelBlaster)
+        # 获取 data/kernelblaster 中的默认位置以进行后备
+        # Repo 根目录是项目根目录 (e.g./path/to/KernelBlaster)
         repo_root = Path(__file__).resolve().parents[3]
         default_json_path = repo_root / "data" / "kernelblaster" / "optimization_database.json"
-        # Default header/footer live alongside the JSON template
+        # 默认页眉/页脚与 JSON 模板一起存在
         default_header_path = repo_root / "data" / "kernelblaster" / "optimization_database_header.md"
         default_footer_path = repo_root / "data" / "kernelblaster" / "optimization_database_footer.md"
         
-        # Load current optimization database
-        # Priority: 1) persisted JSON in output dir, 2) markdown in output dir,
-        #           3) default JSON (and initialize persisted copy), 4) default markdown
+        # 加载当前优化数据库
+        # 优先级：1）在输出目录中保留 JSON，2）在输出目录中进行降价，
+        # 3) 默认 JSON（并初始化持久副本），4) 默认 markdown
         loaded = False
         if self._persist_json_fp.exists():
             print(f"Loading database from persisted JSON: {self._persist_json_fp}")
@@ -397,13 +509,13 @@ class GPUOptimizationDatabase:
             self._parse_optimization_database()
             loaded = True
         elif default_json_path.exists():
-            # Initialize persisted JSON by copying from the default template
+            # 通过从默认模板复制来初始化持久化 JSON
             print(f"Initializing database JSON from default location: {default_json_path}")
             try:
                 self._persist_json_fp.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(default_json_path, self._persist_json_fp)
                 print(f"Copied default database JSON to {self._persist_json_fp}")
-                # Also initialise header/footer markdown if they don't exist yet
+                # 如果页眉/页脚还不存在，还初始化它们
                 if default_header_path.exists() and not self.optimization_db_header_path.exists():
                     shutil.copy2(default_header_path, self.optimization_db_header_path)
                     print(f"Copied default header markdown to {self.optimization_db_header_path}")
@@ -412,7 +524,7 @@ class GPUOptimizationDatabase:
                     print(f"Copied default footer markdown to {self.optimization_db_footer_path}")
             except Exception as e:
                 print(f"Failed to copy default optimization database assets: {e}")
-            # Now load from the (newly created) persisted JSON
+            # 现在从（新创建的）持久化 JSON 加载
             if self._persist_json_fp.exists():
                 print(f"Loading database from persisted JSON: {self._persist_json_fp}")
                 self._regenerate_database_from_json()
@@ -424,9 +536,10 @@ class GPUOptimizationDatabase:
             print(f"    - {self._persist_json_fp}")
             print(f"    - {self.optimization_db_path}")
             print(f"    - {default_json_path}")
-            print(f"    - {default_md_path}")
+            print(f"    - {default_header_path}")
+            print(f"    - {default_footer_path}")
         else:
-            # Log database statistics
+            # 日志数据库统计
             num_states = len(self.optimization_strategies)
             total_optimizations = sum(
                 len(state_data.get("optimizations", []))
@@ -434,27 +547,27 @@ class GPUOptimizationDatabase:
             )
             print(f"Database loaded: {num_states} states, {total_optimizations} optimizations")
         
-        # Extract known states from GPU optimization report
+        # 从 GPU 优化报告中提取已知状态
         self._extract_states_from_gpu_report()
     
     def _regenerate_database_from_json(self):
-        """Regenerate the database from the JSON file."""
+        """从 JSON 文件重新生成数据库。"""
         try:
             import json as _json
-            # 1) Load persisted JSON snapshot
+            # 1) 加载持久化的 JSON 快照
             if not self._persist_json_fp.exists():
                 print(f"_regenerate_database_from_json: JSON snapshot not found at {self._persist_json_fp}")
                 return
 
             data = _json.loads(self._persist_json_fp.read_text(encoding="utf-8"))
 
-            # 2) Rebuild in-memory structures from JSON
+            # 2) 从 JSON 重建内存结构
             self.known_states = {}
             for k, v in data.get("known_states", {}).items():
                 try:
                     self.known_states[k] = StateProfile(**v)
                 except Exception:
-                    # Be robust against schema drift
+                    # 对架构漂移具有鲁棒性
                     self.known_states[k] = StateProfile(
                         state_name=v.get("state_name", k),
                         primary_bottleneck=v.get("primary_bottleneck", "unknown_bound"),
@@ -464,7 +577,7 @@ class GPUOptimizationDatabase:
                         relative_patterns=v.get("relative_patterns", {}),
                     )
 
-            # Optimization strategies
+            # 优化策略
             self.optimization_strategies = {}
             for state_name, state_data in data.get("optimization_strategies", {}).items():
                 optim_dicts = state_data.get("optimizations", [])
@@ -473,7 +586,7 @@ class GPUOptimizationDatabase:
                     try:
                         optim_entries.append(OptimizationEntry(**od))
                     except Exception:
-                        # Minimal compatible construction
+                        # 最小兼容结构
                         optim_entries.append(
                             OptimizationEntry(
                                 technique=od.get("technique", "unknown"),
@@ -497,7 +610,7 @@ class GPUOptimizationDatabase:
                     "secondary_characteristics": state_data.get("secondary_characteristics", []),
                 }
 
-            # Composite optimizations
+            # 复合优化
             self.composite_optimizations = {}
             for state_name, comp_list in data.get("composite_optimizations", {}).items():
                 comps: List[CompositeOptimization] = []
@@ -524,10 +637,10 @@ class GPUOptimizationDatabase:
                         )
                 self.composite_optimizations[state_name] = comps
 
-            # Discovered states metadata
+            # 发现的状态元数据
             self.discovered_states = data.get("discovered_states", {})
 
-            # 3) Compose full markdown from current in-memory data and write it
+            # 3）根据当前内存数据编写完整的markdown并将其写入
             final_markdown = self.get_database_md_text(include_header_footer=True)
             self.optimization_db_path.write_text(final_markdown, encoding="utf-8")
             print(f"_regenerate_database_from_json: Regenerated markdown at {self.optimization_db_path}")
@@ -535,13 +648,36 @@ class GPUOptimizationDatabase:
             print(f"_regenerate_database_from_json: Failed to regenerate from JSON: {e}")
 
     def _build_states_markdown(self) -> str:
-        """Build only the states section in markdown from in-memory structures."""
+        """
+        仅从内存结构构建 markdown 中的状态部分。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         def _fmt_chars(chars: Any) -> str:
+            """
+            处理 `fmt_chars` 所表示的内部步骤；该函数不属于稳定的公开接口。
+
+            参数:
+                chars: 调用方提供的 `chars` 参数。
+
+            返回:
+                当前操作产生的结果；具体类型由返回注解和调用约定确定。
+            """
             if isinstance(chars, list):
                 return ", ".join(str(c) for c in chars)
             return str(chars) if chars is not None else ""
 
         def _fmt_impr(val: Any) -> str:
+            """
+            处理 `fmt_impr` 所表示的内部步骤；该函数不属于稳定的公开接口。
+
+            参数:
+                val: 调用方提供的 `val` 参数。
+
+            返回:
+                当前操作产生的结果；具体类型由返回注解和调用约定确定。
+            """
             if val is None:
                 return "0"
             try:
@@ -567,7 +703,7 @@ class GPUOptimizationDatabase:
                     desc = f" - {opt.description}" if getattr(opt, "description", "") else ""
                     predicted_speedup = getattr(opt, "predicted_speedup", None)
                     if predicted_speedup in (None, 0.0):
-                        # derive speedup from predicted_improvement percent as fallback
+                        # 从 predicted_improvement 百分比得出加速作为后备
                         pred_impr = (getattr(opt, "predicted_improvement", 0.0) or 0.0)
                         predicted_speedup = 1.0 / max(1e-6, 1.0 - (pred_impr / 100.0))
                     lines.append(
@@ -581,14 +717,26 @@ class GPUOptimizationDatabase:
         return ("\n\n".join(state_sections).rstrip() + "\n") if state_sections else ""
 
     def get_database_footer_text(self) -> str:
-        """Return the footer text for the database."""
+        """
+        返回数据库的页脚文本。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         return self.optimization_db_footer_path.read_text(encoding="utf-8") if self.optimization_db_footer_path.exists() else ""
 
     def get_database_md_text(self, include_header_footer: bool = True) -> str:
-        """Return the full database markdown text without writing to disk.
+        """
+        返回完整的数据库 Markdown 文本而不写入磁盘。
 
-        When include_header_footer is True, raw header and footer files are
-        included around the regenerated states markdown if present.
+        当 include_header_footer 为 True 时，原始页眉和页脚文件
+        包含在再生状态降价周围（如果存在）。
+
+        参数:
+            include_header_footer: 调用方提供的 `include_header_footer` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
         states_md = self._build_states_markdown()
         if not include_header_footer:
@@ -615,12 +763,12 @@ class GPUOptimizationDatabase:
         return "\n\n".join(parts).rstrip() + "\n"
     
     def _parse_optimization_database(self):
-        """Parse the existing optimization database."""
+        """解析现有的优化数据库。"""
         content = self.optimization_db_path.read_text()
         current_state = None
         print(f"Parsing optimization database from {self.optimization_db_path}")
         
-        # Parse JSON sections for composite optimizations
+        # 解析 JSON 部分以进行复合优化
         json_match = re.search(r'```json\s*(\{.*?\})\s*```', content, re.DOTALL)
         if json_match:
             try:
@@ -629,7 +777,7 @@ class GPUOptimizationDatabase:
             except json.JSONDecodeError as e:
                 print(f"Warning: Could not parse JSON section: {e}")
         
-        # Parse basic optimizations
+        # 解析基本优化
         for line in content.split('\n'):
             line = line.strip()
             
@@ -640,19 +788,19 @@ class GPUOptimizationDatabase:
                     self.optimization_strategies[current_state] = {"optimizations": []}
                 continue
             
-            # Extended regex: captures optional description after the improvement figure.
-            # Example line:
-            # - **memory_compute_overlap**: 0% performance improvement - Pipeline memory and compute operations
+            # 扩展正则表达式：捕获改进图后的可选描述。
+            # 示例行：
+            # - **memory_compute_overlap**：0% 性能提升 - 管道内存和计算操作
             opt_match = re.match(
                 r'- \*\*(.+?)\*\*: (\d+(?:\.\d+)?)% performance improvement(?:\s*-\s*(.+))?',
                 line,
             )
 
-            # if line starts with **Characteristics**:
+            # 如果行以 **Characteristics** 开头：
             if line.startswith("**Characteristics**:"):
                 current_state_characteristics = line.split(":", 1)[1].strip()
                 self.optimization_strategies[current_state]["secondary_characteristics"] = current_state_characteristics
-            # if line starts with **Primary Bottleneck**:
+            # 如果行以 **Primary Bottleneck** 开头：
             if line.startswith("**Primary Bottleneck**:"):
                 current_state_primary_bottleneck = line.split(":", 1)[1].strip()
                 self.optimization_strategies[current_state]["primary_bottleneck"] = current_state_primary_bottleneck
@@ -670,12 +818,12 @@ class GPUOptimizationDatabase:
                     category=self._categorize_technique(technique),
                 )
                 self.optimization_strategies[current_state]["optimizations"].append(entry)
-                # print(f"Added optimization strategy for {current_state}: {technique} with improvement {improvement}")
+                # print(f"为 {current_state} 添加了优化策略：{technique} 并改进了 {improvement}")
     
     def _extract_states_from_gpu_report(self):
-        """Extract state patterns from the comprehensive GPU optimization report."""
-        # This creates qualitative state profiles from the GPU optimization report
-        # Based on the decision tree structure
+        """从综合 GPU 优化报告中提取状态模式。"""
+        # 这会根据 GPU 优化报告创建定性状态配置文件
+        # 基于决策树结构
         
         memory_bound_profile = StateProfile(
             state_name="memory_bandwidth_limited",
@@ -734,7 +882,7 @@ class GPUOptimizationDatabase:
             }
         )
         
-        # Store known state profiles
+        # 存储已知的状态配置文件
         self.known_states = {
             "memory_bandwidth_limited": memory_bound_profile,
             "compute_throughput_limited": compute_bound_profile,
@@ -743,19 +891,28 @@ class GPUOptimizationDatabase:
     
     async def analyze_performance_state(self, ncu_report: str, metrics: dict, code_implementation: str, elapsed_cycles: Optional[int] = None) -> StateProfile:
         """
-        LLM Agent 1: State Summarizer
-        Analyzes NCU report and extracts qualitative performance characteristics.
+        LLM Agent 1：状态总结器
+        分析 NCU 报告并提取定性性能特征。
+
+        参数:
+            ncu_report: 调用方提供的 `ncu_report` 参数。
+            metrics: 性能分析或正确性检查产生的指标集合。
+            code_implementation: 调用方提供的 `code_implementation` 参数。
+            elapsed_cycles: 调用方提供的 `elapsed_cycles` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
         
-        # If ncu_report is empty but we have cycles, construct a minimal report
-        # Only show cycles if they're > 0 (0 usually indicates parsing failure)
+        # 如果 ncu_report 为空但我们有循环，则构建一个最小报告
+        # 仅当循环 > 0 时才显示循环（0 通常表示解析失败）
         if not ncu_report.strip() and elapsed_cycles is not None and elapsed_cycles > 0:
             ncu_report = f"""Elapsed Cycles: {elapsed_cycles:,}
 
 Note: This is a cycles-only profiling mode. Detailed NCU metrics are not available.
 Use the code implementation and elapsed cycles to infer performance characteristics."""
         elif not ncu_report.strip():
-            # If cycles are 0 or None, indicate that profiling data is unavailable
+            # 如果周期为 0 或 None，表示分析数据不可用
             ncu_report = """Note: Cycles-only profiling mode is enabled, but elapsed cycles were not successfully parsed from the program output.
 Detailed NCU metrics are not available. Please analyze based on the code implementation alone."""
 
@@ -800,7 +957,7 @@ Focus on qualitative patterns and relationships rather than specific numbers. Lo
         if self.llm_interface and self.llm_interface.is_available():
             try:
                 analysis = await self.llm_interface.query(state_analysis_prompt, max_tokens=800, temperature=0.1)
-                # Log prompt/response for transparency
+                # 记录提示/响应以提高透明度
                 self._log_llm_interaction("StateAnalysis", state_analysis_prompt, analysis)
                 return self._parse_state_analysis(analysis)
             except Exception as e:
@@ -811,7 +968,15 @@ Focus on qualitative patterns and relationships rather than specific numbers. Lo
             return self._fallback_state_analysis(ncu_report, metrics)
     
     def _parse_state_analysis(self, llm_response: str) -> StateProfile:
-        """Parse LLM state analysis response into StateProfile."""
+        """
+        将 LLM 状态分析响应解析为 StateProfile。
+
+        参数:
+            llm_response: 调用方提供的 `llm_response` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         lines = llm_response.split('\n')
         
         primary_bottleneck = "unknown_bound"
@@ -858,13 +1023,19 @@ Focus on qualitative patterns and relationships rather than specific numbers. Lo
     
     async def match_state_against_database(self, current_state: StateProfile) -> str:
         """
-        LLM Agent 2: State Matcher
-        Compares current state against known optimization patterns qualitatively.
+        LLM Agent 2：状态匹配器
+        将当前状态与已知优化模式进行定性比较。
+
+        参数:
+            current_state: 调用方提供的 `current_state` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
         
-        # Prepare known states for comparison
+        # 准备已知状态进行比较
         known_states_text = ""
-        # Build text from optimisation_strategies (deprecated known_states removed)
+        # 从 optimisation_strategies 构建文本（已删除已弃用的 known_states）
         for state_name, state_data in self.optimization_strategies.items():
             primary_bottleneck = state_data.get("primary_bottleneck", "")
             secondary_chars = state_data.get("secondary_characteristics", "")
@@ -918,7 +1089,7 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
         if self.llm_interface and self.llm_interface.is_available():
             try:
                 matching_result = await self.llm_interface.query(matching_prompt, max_tokens=500, temperature=0.1)
-                # Log interaction
+                # 记录交互
                 self._log_llm_interaction("StateMatching", matching_prompt, matching_result)
                 return self._parse_matching_result(matching_result)
             except Exception as e:
@@ -929,7 +1100,15 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
             return self._fallback_state_matching(current_state)
     
     def _parse_matching_result(self, llm_response: str) -> str:
-        """Parse LLM matching response to extract best match."""
+        """
+        解析 LLM 匹配响应以提取最佳匹配。
+
+        参数:
+            llm_response: 调用方提供的 `llm_response` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         lines = llm_response.split('\n')
         
         for line in lines:
@@ -943,50 +1122,59 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
         self, ncu_report: str, metrics: dict, code_implementation: str = "", elapsed_cycles: Optional[int] = None
     ) -> str:
         """
-        Main interface: Two-LLM agent system for state identification.
-        
-        Returns the matched state name for optimization selection.
+        主界面：两个LLM代理系统，用于状态识别。
+
+        返回优化选择的匹配状态名称。
+
+        参数:
+            ncu_report: 调用方提供的 `ncu_report` 参数。
+            metrics: 性能分析或正确性检查产生的指标集合。
+            code_implementation: 调用方提供的 `code_implementation` 参数。
+            elapsed_cycles: 调用方提供的 `elapsed_cycles` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
 
-        # Agent 1: Analyze current state qualitatively
+        # 代理 1：定性分析当前状态
         current_state = await self.analyze_performance_state(
             ncu_report, metrics, code_implementation, elapsed_cycles=elapsed_cycles
         )
         
-        # Agent 2: Match against known optimization patterns
+        # 代理 2：与已知优化模式匹配
         matched_state = await self.match_state_against_database(current_state)
         
-        # Handle new state discovery - HYBRID APPROACH: Create new state + inherit strategies
+        # 处理新状态发现 - 混合方法：创建新状态 + 继承策略
         if matched_state == "NEW_STATE_NEEDED" or matched_state == "unknown_state":
-            # Create new state to preserve unique characteristics
+            # 创建新状态以保留独特特征
             new_state_name = f"discovered_{current_state.primary_bottleneck}_{len(self.optimization_strategies)}"
             
-            # Find the best existing state to inherit optimization strategies from
+            # 找到最好的现有状态来继承优化策略
             source_state = self._map_to_existing_state_with_strategies(current_state)
             
             if source_state and source_state in self.optimization_strategies:
-                # Copy optimization strategies but with reduced confidence for the new state
+                # 复制优化策略，但对新状态的信心降低
                 inherited_strategies = []
                 for original_strategy in self.optimization_strategies[source_state].get("optimizations", []):
                     inherited_strategy = OptimizationEntry(
                         technique=original_strategy.technique,
-                        predicted_improvement=original_strategy.predicted_improvement * 0.8 if original_strategy.predicted_improvement is not None else None,  # Reduce confidence
+                        predicted_improvement=original_strategy.predicted_improvement * 0.8 if original_strategy.predicted_improvement is not None else None,  # 降低信心
                         description=f"Inherited from {source_state}: {original_strategy.description}",
                         category=original_strategy.category,
-                        confidence_score=original_strategy.confidence_score * 0.8,  # Lower confidence for inheritance
+                        confidence_score=original_strategy.confidence_score * 0.8,  # 对继承的信心降低
                         last_updated=datetime.now().isoformat(),
-                        usage_count=original_strategy.usage_count  # Preserve accumulated usage count instead of resetting
+                        usage_count=original_strategy.usage_count  # 保留累计使用次数而不是重置
                     )
                     inherited_strategies.append(inherited_strategy)
                 
-                # Assign inherited strategies to the new state (wrap with metadata)
+                # 将继承的策略分配给新状态（用元数据包装）
                 self.optimization_strategies[new_state_name] = {
                     "optimizations": inherited_strategies,
                     "primary_bottleneck": current_state.primary_bottleneck,
                     "secondary_characteristics": current_state.secondary_characteristics,
                 }
                 
-                # Store detailed discovery metadata
+                # 存储详细的发现元数据
                 self.discovered_states[new_state_name] = {
                     "original_state": current_state.__dict__,
                     "inherited_from": source_state,
@@ -995,14 +1183,14 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
                     "approach": "hybrid_create_and_inherit"
                 }
                 
-                # Log the hybrid creation
+                # 记录混合创建
                 if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                     self.llm_interface.logger.info(
                         f"Created new state '{new_state_name}' with {len(inherited_strategies)} "
                         f"strategies inherited from '{source_state}' (bottleneck: {current_state.primary_bottleneck})"
                     )
                 
-                # Pre-select and cache an optimisation for the newly discovered state
+                # 预选择并缓存新发现状态的优化
                 try:
                     best_opt = await self._select_best_optimization_llm(new_state_name, current_state)
                     if best_opt:
@@ -1014,7 +1202,7 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
                 return new_state_name
             
             else:
-                # Fallback: Create state with default strategies based on bottleneck type
+                # 回退：根据瓶颈类型使用默认策略创建状态
                 default_strategies = self._create_default_strategies_for_bottleneck(current_state.primary_bottleneck)
                 if default_strategies:
                     self.optimization_strategies[new_state_name] = {
@@ -1023,7 +1211,7 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
                         "secondary_characteristics": current_state.secondary_characteristics,
                     }
                     
-                    # Store metadata for default strategy creation
+                    # 存储用于创建默认策略的元数据
                     self.discovered_states[new_state_name] = {
                         "original_state": current_state.__dict__,
                         "strategy_source": "default_for_bottleneck",
@@ -1038,7 +1226,7 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
                             f"default strategies for bottleneck: {current_state.primary_bottleneck}"
                         )
                     
-                    # Pre-select and cache an optimisation for the default-strategy state
+                    # 预选择并缓存默认策略状态的优化
                     try:
                         best_opt = await self._select_best_optimization_llm(new_state_name, current_state)
                         if best_opt:
@@ -1049,8 +1237,8 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
 
                 return new_state_name
         
-        # Cache an optimisation for the matched existing state so that callers
-        # can retrieve it immediately via select_best_optimization.
+        # 缓存匹配现有状态的优化，以便调用者
+        # 可以通过select_best_optimization立即检索它。
         try:
             best_opt = await self._select_best_optimization_llm(matched_state, current_state)
             if best_opt:
@@ -1063,11 +1251,17 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
     
     def _map_to_existing_state_with_strategies(self, current_state: StateProfile) -> Optional[str]:
         """
-        Map a discovered state to an existing state that has optimization strategies.
-        
-        This prevents the issue where discovered states have no optimization strategies.
+        将发现的状态映射到具有优化策略的现有状态。
+
+        这可以防止发现的状态没有优化策略的问题。
+
+        参数:
+            current_state: 调用方提供的 `current_state` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
-        # Primary bottleneck mapping to database state names
+        # 主要瓶颈映射到数据库状态名称
         bottleneck_to_state_mapping = {
             "memory_bound": [
                 "memory_bandwidth_saturated",
@@ -1091,23 +1285,23 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
             ]
         }
         
-        # Get candidate states based on primary bottleneck
+        # 根据主要瓶颈获取候选状态
         candidates = bottleneck_to_state_mapping.get(current_state.primary_bottleneck, [])
         
-        # Filter to only states that have optimization strategies
+        # 过滤到仅具有优化策略的州
         candidates_with_strategies = [
             state for state in candidates 
             if state in self.optimization_strategies and len(self.optimization_strategies[state].get("optimizations", [])) > 0
         ]
         
         if not candidates_with_strategies:
-            # Try to find any state with optimization strategies as last resort
+            # 尝试找到任何具有优化策略的状态作为最后的手段
             candidates_with_strategies = [
                 state for state in self.optimization_strategies.keys()
                 if len(self.optimization_strategies[state].get("optimizations", [])) > 0
             ]
             
-            # Log debugging information
+            # 记录调试信息
             if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                 self.llm_interface.logger.debug(
                     f"No direct candidates found for {current_state.primary_bottleneck}. "
@@ -1115,10 +1309,10 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
                 )
         
         if candidates_with_strategies:
-            # For now, return the first candidate. Could be improved with similarity scoring
+            # 现在，返回第一个候选者。可以通过相似性评分来改进
             selected_state = candidates_with_strategies[0]
             
-            # Log the selection
+            # 记录选择
             if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                 self.llm_interface.logger.info(
                     f"Selected state '{selected_state}' for bottleneck '{current_state.primary_bottleneck}' "
@@ -1130,7 +1324,16 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
         return None
     
     def _fallback_state_analysis(self, ncu_report: str, metrics: dict) -> StateProfile:
-        """Fallback analysis when LLM is not available."""
+        """
+        LLM 不可用时的后备分析。
+
+        参数:
+            ncu_report: 调用方提供的 `ncu_report` 参数。
+            metrics: 性能分析或正确性检查产生的指标集合。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         memory_throughput = metrics.get('memory_throughput', 0)
         compute_throughput = metrics.get('compute_throughput', 0)
         
@@ -1151,8 +1354,16 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
         )
     
     def _fallback_state_matching(self, current_state: StateProfile) -> str:
-        """Fallback matching when LLM is not available."""
-        # Simple matching based on primary bottleneck
+        """
+        LLM 不可用时的后备匹配。
+
+        参数:
+            current_state: 调用方提供的 `current_state` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
+        # 基于主要瓶颈的简单匹配
         for state_name, state_data in self.optimization_strategies.items():
             if state_data.get("primary_bottleneck") == current_state.primary_bottleneck:
                 return state_name
@@ -1164,19 +1375,37 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
         current_state_profile: StateProfile,
         include_composite: bool = True,
     ) -> Optional[OptimizationEntry | CompositeOptimization]:
-        """Let the LLM pick the single best optimisation globally.
+        """
+        让 LLM 在全局候选中选择最匹配当前状态的优化方案。
 
-        Instead of limiting the choice to *state*-specific techniques we now
-        expose **all** optimisations found in the database (across every
-        state).  This gives the selector complete freedom and removes the
-        dependency on an explicit state-matching phase.
+        我们现在不再将选择限制为*状态*特定技术
+        公开数据库中发现的**所有**优化（跨每个
+        状态）。  这给了选择器完全的自由并消除了
+        对显式状态匹配阶段的依赖。
 
-        The helper still caches the choice under the provided *state* key so
-        external callers can access it transparently via
-        ``select_best_optimization``.
+        帮助器仍然在提供的 *state* 键下缓存选择，因此
+        外部调用者可以通过透明地访问它
+        ``select_best_optimization``。
+
+        参数:
+            state: 工作流节点读取并按约定更新的共享状态。
+            current_state_profile: 调用方提供的 `current_state_profile` 参数。
+            include_composite: 调用方提供的 `include_composite` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
 
         def _collect_all_opts(include_composite_flag: bool):
+            """
+            收集 `collect_all_opts` 所表示的内部步骤；该函数不属于稳定的公开接口。
+
+            参数:
+                include_composite_flag: 调用方提供的 `include_composite_flag` 参数。
+
+            返回:
+                当前操作产生的结果；具体类型由返回注解和调用约定确定。
+            """
             opts: List[OptimizationEntry | CompositeOptimization] = []
             for state_data in self.optimization_strategies.values():
                 opts.extend(state_data.get("optimizations", []))
@@ -1190,11 +1419,11 @@ If confidence < 0.6, respond with BEST_MATCH: NEW_STATE_NEEDED
         if not all_opts:
             return None
 
-        # --------------- Attempt LLM-driven choice ---------------
+        # --------------- 尝试LLM驱动的选择---------------
         chosen_name: Optional[str] = None
         if self.llm_interface and self.llm_interface.is_available():
-            # Sample up to 15 representative options to keep the prompt size
-            # manageable – choose those with highest predicted improvement.
+            # 采样最多 15 个代表性选项以保持提示大小
+            # 可管理的——选择那些预测改进最高的。
             top_opts = sorted(
                 all_opts,
                 key=lambda o: (
@@ -1242,9 +1471,18 @@ AVAILABLE OPTIMISATIONS:
                 if hasattr(self.llm_interface, "logger") and self.llm_interface.logger:
                     self.llm_interface.logger.warning(f"LLM optimisation selection failed: {exc}")
 
-        # --------------- Fallback deterministic choice ---------------
+        # --------------- 回退确定性选择 ---------------
         if not chosen_name:
             def _score(o):
+                """
+                处理 `score` 所表示的内部步骤；该函数不属于稳定的公开接口。
+
+                参数:
+                    o: 调用方提供的 `o` 参数。
+
+                返回:
+                    当前操作产生的结果；具体类型由返回注解和调用约定确定。
+                """
                 pred_speedup = getattr(o, "predicted_speedup", None)
                 if pred_speedup in (None, 0.0):
                     pred_impr = (getattr(o, "predicted_improvement", 0.0) or 0.0)
@@ -1254,15 +1492,24 @@ AVAILABLE OPTIMISATIONS:
             best_opt = max(all_opts, key=_score)
             return best_opt
 
-        # Map the name chosen by the LLM back to the object.
+        # 将 LLM 选择的名称映射回对象。
         for opt in all_opts:
             if opt.technique == chosen_name:
                 return opt
             if isinstance(opt, CompositeOptimization) and opt.get_composite_id() == chosen_name:
                 return opt
 
-        # If we reach here the LLM responded with an unknown name – fall back to deterministic.
+        # LLM 若返回未知名称，则退回确定性评分，保证调用方始终得到可用结果。
         def _score(o):
+            """
+            处理 `score` 所表示的内部步骤；该函数不属于稳定的公开接口。
+
+            参数:
+            o: 调用方提供的 `o` 参数。
+
+            返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+            """
             pred_speedup = getattr(o, "predicted_speedup", None)
             if pred_speedup in (None, 0.0):
                 pred_impr = (getattr(o, "predicted_improvement", 0.0) or 0.0)
@@ -1275,31 +1522,40 @@ AVAILABLE OPTIMISATIONS:
         self,
         state_analysis_response: str,
         code_implementation: str,
-        top_n: int = 5, #generated top 5 optimisations options
+        top_n: int = 5, # 生成前 5 个优化选项
     ) -> List[Dict[str, Any]]:
-        """Ask the LLM to pick the *top_n* most relevant optimisation techniques.
+        """
+        要求 LLM 选择 *top_n* 个与当前状态最相关的优化技术。
 
-        Parameters
+        参数
         ----------
-        state_analysis_response:
-            The RAW text returned by :py:meth:`analyze_performance_state` (or an
-            equivalent manual analysis).  It provides the qualitative bottleneck
-            and performance characteristics of the current kernel.
-        code_implementation:
-            The CUDA/C++ implementation of the kernel to be optimised – will be
-            embedded inside a `````cpp````` block so syntax highlighting is
-            preserved for the LLM.
-        top_n:
-            Number of optimisation candidates to request from the LLM (default 3).
+        state_analysis_response：
+        :py:meth:`analyze_performance_state` 返回的原始文本（或
+        等效手动分析）。  它提供了质量瓶颈
+        当前内核的性能特征。
+        code_implementation：
+        待优化的内核的 CUDA/C++ 实现 - 将是
+        嵌入在`````cpp`````块中，因此语法突出显示是
+        为 LLM 保留语法高亮和清晰的代码边界。
+        top_n：
+        向 LLM 请求的优化候选数（默认 3）。
 
-        Returns
+        退货
         -------
-        List[Dict[str, Any]]
-            A list with length *top_n* where every element is a dictionary with the
-            keys ``technique``, ``relevance_score`` and ``reasoning``.
+        列表[字典[str, 任意]]
+        长度为 *top_n* 的列表，其中每个元素都是一个字典，其中
+        键“`technique``, ``relevance_score`` and ``reasoning`”。
+
+        参数:
+            state_analysis_response: 调用方提供的 `state_analysis_response` 参数。
+            code_implementation: 调用方提供的 `code_implementation` 参数。
+            top_n: 调用方提供的 `top_n` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
 
-        # ------------------------- LLM prompt -------------------------
+        # ------------------------- LLM提示-------------------------
         prompt = f"""
 You are a world-class GPU optimisation expert.  Based on the kernel implementation
 and the qualitative state analysis below, choose the **{top_n}** optimisation
@@ -1341,7 +1597,7 @@ CODE IMPLEMENTATION:
 {self._build_available_optimisations_summary()}
 """
 
-        # -------------------- Attempt LLM inference --------------------
+        # -------------------- 尝试 LLM 推理 --------------------
         if self.llm_interface and self.llm_interface.is_available():
             try:
                 llm_resp = await self.llm_interface.query(prompt, max_tokens=800, temperature=0.1)
@@ -1353,15 +1609,24 @@ CODE IMPLEMENTATION:
                 if hasattr(self.llm_interface, "logger") and self.llm_interface.logger:
                     self.llm_interface.logger.warning(f"LLM optimisation-plan generation failed: {exc}")
 
-        # ------------------ Fallback deterministic path ------------------
+        # ------------------ 回退确定性路径 ------------------
         def _score(opt):
+            """
+            处理 `score` 所表示的内部步骤；该函数不属于稳定的公开接口。
+
+            参数:
+                opt: 调用方提供的 `opt` 参数。
+
+            返回:
+                当前操作产生的结果；具体类型由返回注解和调用约定确定。
+            """
             pred_speedup = getattr(opt, "predicted_speedup", None)
             if pred_speedup in (None, 0.0):
                 pred_impr = (getattr(opt, "predicted_improvement", 0.0) or 0.0)
                 pred_speedup = 1.0 / max(1e-6, 1.0 - (pred_impr / 100.0))
             return pred_speedup * getattr(opt, "confidence_score", 0.5)
 
-        # Flatten all optimisation objects
+        # 展平所有优化对象
         all_opts: List[OptimizationEntry | CompositeOptimization] = list(
             itertools.chain.from_iterable(
                 state_data.get("optimizations", []) for state_data in self.optimization_strategies.values()
@@ -1377,17 +1642,26 @@ CODE IMPLEMENTATION:
             fallback_plan.append(
                 {
                     "technique": opt.technique if isinstance(opt, OptimizationEntry) else opt.get_composite_id(),
-                    "relevance_score": min(1.0, _score(opt) / 100.0),  # crude normalisation
+                    "relevance_score": min(1.0, _score(opt) / 100.0),  # 粗标准化
                     "description": "Selected via deterministic fallback based on predicted speedup.",
                 }
             )
         return fallback_plan
 
     # ------------------------------------------------------------------
-    # Helper: parse optimisation plan JSON returned by the LLM
+    # Helper：解析LLM返回的优化计划JSON
     # ------------------------------------------------------------------
     def _parse_optimization_plan(self, llm_response: str, expected_n: int) -> List[Dict[str, Any]]:
-        """Attempt to JSON-decode *llm_response* and validate structure."""
+        """
+        尝试 JSON 解码 *llm_response* 并验证结构。
+
+        参数:
+            llm_response: 调用方提供的 `llm_response` 参数。
+            expected_n: 调用方提供的 `expected_n` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         import json as _json
 
         try:
@@ -1399,19 +1673,23 @@ CODE IMPLEMENTATION:
             ):
                 return plan  # type: ignore[return-value]
         except Exception:
-            pass  # fallthrough – caller will trigger deterministic fallback
+            pass  # Fallthrough——调用者将触发确定性回退
 
         return []
     
     # ------------------------------------------------------------------
-    # Helper: build human-readable summary of all optimisation techniques
+    # Helper：构建所有优化技术的人类可读的摘要
     # ------------------------------------------------------------------
     def _build_available_optimisations_summary(self) -> str:
-        """Return a multi-line string enumerating all optimisation techniques.
+        """
+        返回一个多行字符串，枚举所有优化技术。
 
-        Format:
-        STATE: <state_name>
-          - <technique> (pred <x>% | conf <y>): <description>
+        格式：
+        状态：<state_name>
+        - <技术> (pred <x>% | conf <y>): <描述>
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
 
         lines: List[str] = []
@@ -1429,9 +1707,9 @@ CODE IMPLEMENTATION:
                 lines.append(
                     f"  - {opt.technique} (pred {predicted_speedup:.2f}x | conf {opt.confidence_score}): {desc}"
                 )
-            lines.append("")  # blank line between states
+            lines.append("")  # 状态之间的空行
 
-        # Include composite optimisations
+        # 包括复合优化
         for state, comps in self.composite_optimizations.items():
             if not comps:
                 continue
@@ -1450,27 +1728,52 @@ CODE IMPLEMENTATION:
         return "\n".join(lines)
     
     def get_optimizations_for_state(self, state: str) -> List[OptimizationEntry]:
-        """Get optimization strategies for a given state."""
+        """
+        获取给定状态的优化策略。
+
+        参数:
+            state: 工作流节点读取并按约定更新的共享状态。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         return self.optimization_strategies.get(state, {}).get("optimizations", [])
     
     def get_composite_optimizations_for_state(self, state: str) -> List[CompositeOptimization]:
-        """Get composite optimizations for a given state."""
+        """
+        获得给定状态的复合优化。
+
+        参数:
+            state: 工作流节点读取并按约定更新的共享状态。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         return self.composite_optimizations.get(state, [])
     
     def select_best_optimization(self, state: str, exclude_used: bool = False, 
                                 include_composite: bool = True) -> Optional[OptimizationEntry | CompositeOptimization]:
-        """Return the optimisation previously selected by the LLM for *state*.
+        """
+        返回 LLM 之前为 *state* 选择的优化。
 
-        This method is now a lightweight accessor so that existing external
-        code can remain unchanged.  If the user requests to exclude already
-        used techniques we honour that contract; otherwise the cached
-        recommendation is returned directly.  If, for any reason, no cached
-        recommendation exists we fall back to the legacy stochastic chooser
-        to preserve behaviour.
+        此方法现在是一个轻量级访问器，以便现有的外部
+        代码可以保持不变。  如果用户已经请求排除
+        我们遵守该合同所使用的技术；否则缓存的
+        推荐直接返回。  如果由于任何原因没有缓存
+        存在建议，我们回到传统的随机选择器
+        以保留行为。
+
+        参数:
+            state: 工作流节点读取并按约定更新的共享状态。
+            exclude_used: 调用方提供的 `exclude_used` 参数。
+            include_composite: 调用方提供的 `include_composite` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
 
         # ----------------------------------------------------------
-        # 1) Fast path – the LLM has already made a recommendation.
+        # 1）快速路径——LLM已经提出了建议。
         # ----------------------------------------------------------
         if state in self._llm_recommended_optimizations:
             recommended = self._llm_recommended_optimizations[state]
@@ -1486,12 +1789,12 @@ CODE IMPLEMENTATION:
                     f"[select_best_optimization] Using cached LLM recommendation for state='{state}': {tech}"
                 )
             except Exception:
-                # Best-effort logging only
+                # 仅尽力记录
                 pass
             return recommended
 
         # ----------------------------------------------------------
-        # 2) Fallback – use the old probabilistic scoring mechanism.
+        # 2) Fallback——使用旧的概率评分机制。
         # ----------------------------------------------------------
         try:
             self.llm_interface.logger.info(
@@ -1502,7 +1805,7 @@ CODE IMPLEMENTATION:
 
         import math, random, itertools, os
 
-        # Log env-driven behaviour once so runs are easy to audit from run.log.
+        # 记录环境驱动的行为一次，以便从 run.log 轻松审核运行。
         if not getattr(self, "_logged_fallback_top1_env", False):
             self._logged_fallback_top1_env = True
             raw_val = os.getenv("KERNELAGENT_DB_FALLBACK_TOP1", None)
@@ -1522,7 +1825,7 @@ CODE IMPLEMENTATION:
             else:
                 print(msg)
 
-        # Use the global optimisation pool for the fallback path as well.
+        # 也将全局优化池用于后备路径。
         optimizations = [
             opt
             for state_data in self.optimization_strategies.values()
@@ -1542,6 +1845,15 @@ CODE IMPLEMENTATION:
             return None
 
         def score_optimization(opt) -> float:
+            """
+            处理 `score_optimization` 对应的领域操作，并返回调用方所需的标准化结果。
+
+            参数:
+                opt: 调用方提供的 `opt` 参数。
+
+            返回:
+                当前操作产生的结果；具体类型由返回注解和调用约定确定。
+            """
             pred_speedup = getattr(opt, "predicted_speedup", None)
             if pred_speedup in (None, 0.0):
                 pred_impr = (getattr(opt, "predicted_improvement", 0.0) or 0.0)
@@ -1558,17 +1870,17 @@ CODE IMPLEMENTATION:
         if all(abs(s) < 1e-6 for s in scores):
             scores = [1.0 for _ in scores]
 
-        # Temperature for exploration (smaller => greedier)
-        tau = 0.5  # can be exposed as parameter later
+        # 探索温度（较小=>贪婪）
+        tau = 0.5  # 稍后可以作为参数公开
 
         max_s = max(scores)
         exp_scores = [math.exp((s - max_s) / max(tau, 1e-6)) for s in scores]
         total = sum(exp_scores)
         probs = [es / total for es in exp_scores]
 
-        # Optional deterministic fallback for debugging/repro.
-        # If set, we choose the single best-scoring optimisation instead of sampling.
-        # Env var is intentionally scoped to this fallback path (LLM recommendations are unchanged).
+        # 用于调试/重现的可选确定性回退。
+        # 如果设置，我们将选择单个最佳得分优化而不是采样。
+        # 环境变量有意限定在该后备路径范围内（LLM 建议不变）。
         force_top1 = os.getenv("KERNELAGENT_DB_FALLBACK_TOP1", "0") in (
             "1",
             "true",
@@ -1583,12 +1895,20 @@ CODE IMPLEMENTATION:
             best_idx = max(range(len(scores)), key=lambda i: scores[i])
             return all_opts[best_idx]
 
-        # Random choice according to probabilities – eliminates order bias
+        # 根据概率随机选择 – 消除顺序偏差
         chosen_opt = random.choices(all_opts, weights=probs, k=1)[0]
         return chosen_opt
         
     def _categorize_technique(self, technique: str) -> str:
-        """Categorize optimization technique by type."""
+        """
+        按类型对优化技术进行分类。
+
+        参数:
+            technique: 调用方提供的 `technique` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         technique_lower = technique.lower()
         if any(term in technique_lower for term in ['memory', 'coalesced', 'cache', 'tiling']):
             return 'memory'
@@ -1601,13 +1921,19 @@ CODE IMPLEMENTATION:
         
     def _create_default_strategies_for_bottleneck(self, bottleneck_type: str) -> List[OptimizationEntry]:
         """
-        Create default optimization strategies for a given bottleneck type.
-        
-        Args:
-            bottleneck_type: The type of bottleneck (memory_bound, compute_bound, latency_bound, hybrid_bound)
-            
-        Returns:
-            List of OptimizationEntry objects with default strategies
+        为给定的瓶颈类型创建默认优化策略。
+
+        参数：
+        bottleneck_type：瓶颈类型（memory_bound、compute_bound、latency_bound、hybrid_bound）
+
+        返回：
+        具有默认策略的 OptimizationEntry 对象列表
+
+        参数:
+            bottleneck_type: 调用方提供的 `bottleneck_type` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
         
         default_strategies = []
@@ -1725,7 +2051,7 @@ CODE IMPLEMENTATION:
             ]
         
         else:
-            # Fallback strategies for unknown bottleneck types
+            # 未知瓶颈类型的后备策略
             default_strategies = [
                 OptimizationEntry(
                     technique="general_optimization",
@@ -1748,7 +2074,12 @@ CODE IMPLEMENTATION:
         return default_strategies
     
     def _load_composite_optimizations(self, json_data: dict):
-        """Load composite optimizations from JSON data."""
+        """
+        从 JSON 数据加载复合优化。
+
+        参数:
+            json_data: 调用方提供的 `json_data` 参数。
+        """
         for adjustment in json_data.get("prediction_adjustments", []):
             state = adjustment["state"]
             if state not in self.composite_optimizations:
@@ -1768,9 +2099,22 @@ CODE IMPLEMENTATION:
             self.composite_optimizations[state].append(composite)
 
     def update_optimization_result(self, state: str, technique: str, actual_improvement: float,
-                                    current_file_path: Optional[Path] = None):
-            # Log the update attempt
-            # Update the optimization entry with actual results
+                                    current_file_path: Optional[Path] = None,
+                                    measurement: Measurement | None = None):
+            # 记录更新尝试
+            # 以实际结果更新优化条目
+            """
+            更新 `update_optimization_result` 对应的领域操作，并返回调用方所需的标准化结果。
+
+            参数:
+                state: 工作流节点读取并按约定更新的共享状态。
+                technique: 调用方提供的 `technique` 参数。
+                actual_improvement: 调用方提供的 `actual_improvement` 参数。
+                current_file_path: 调用方提供的 `current_file_path` 参数。
+
+            异常:
+                ValueError: 输入、外部调用或状态不满足执行要求时抛出。
+            """
             if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                 self.llm_interface.logger.info(f"Attempting to update optimization result for {technique} in state {state} with actual improvement {actual_improvement}")
             if state in self.optimization_strategies:
@@ -1778,21 +2122,21 @@ CODE IMPLEMENTATION:
                     if opt.technique == technique:
                         prev_usage = opt.usage_count
                         new_usage = prev_usage + 1
-                        # Store the most recent measurement
+                        # 存储最近的测量值
                         opt.actual_improvement = actual_improvement
                         opt.usage_count = new_usage
                         opt.last_updated = datetime.now().isoformat()
 
                         self.llm_interface.logger.info(f"Updating database entry for {technique} in state {state}")
-                        # ----------------- Calculate speedup -----------------
-                        speedup_of_cur_optimization = 1.0  # Default to no speedup
+                        # ----------------- 计算加速比 -----------------
+                        speedup_of_cur_optimization = 1.0  # 默认不加速
                         if current_file_path:
                             try:
                                 if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                                     self.llm_interface.logger.info(
                                         f"Speedup calc: current_file_path={current_file_path}"
                                     )
-                                # For first iteration, get initial baseline from files
+                                # 对于第一次迭代，从文件中获取初始基线
                                 if opt.initial_elapsed_cycles is None:
                                     baseline_ncu = current_file_path.parent / "ncu/0_init_ncu_log.txt"
                                     init_cu = current_file_path.parent / "ncu_annot/init.cu"
@@ -1811,8 +2155,8 @@ CODE IMPLEMENTATION:
                                         self.llm_interface.logger.info(
                                             f"Speedup calc: parsed initial_elapsed_cycles={opt.initial_elapsed_cycles} from {used_path}"
                                         )
-                                # Calculate speedup using the passed in actual_improvement as current elapsed cycles
-                                # and the stored initial_elapsed_cycles as baseline
+                                # 使用传入的 actual_improvement 作为当前经过的周期来计算加速比
+                                # 和存储的 initial_elapsed_cycles 作为基线
                                 if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                                     self.llm_interface.logger.info(
                                         f"Speedup calc: actual_improvement arg value={actual_improvement} (type={type(actual_improvement)})"
@@ -1827,12 +2171,12 @@ CODE IMPLEMENTATION:
                                 speedup_of_cur_optimization = abs(float(opt.initial_elapsed_cycles) / float(current_elapsed_cycles))
                                 opt.actual_speedup = speedup_of_cur_optimization
                             except (ValueError, FileNotFoundError, AttributeError) as e:
-                                # Fall back to no speedup calculation if files can't be read
+                                # 如果无法读取文件，则退回到无加速计算
                                 if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                                     self.llm_interface.logger.warning(f"Could not calculate speedup (baseline flow): {e}")
                                 speedup_of_cur_optimization = 1.0
                         else:
-                            # No file path provided, cannot read baseline. Attempt to infer from percent improvement if applicable.
+                            # 未提供文件路径，无法读取基线。如果适用，尝试从改进百分比进行推断。
                             if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                                 self.llm_interface.logger.info("Speedup calc: no current_file_path provided; attempting percent-based inference.")
                             try:
@@ -1840,7 +2184,7 @@ CODE IMPLEMENTATION:
                                 if abs(denom) < 1e-6:
                                     denom = 1e-6 if denom >= 0 else -1e-6
                                 inferred_speedup = abs(1.0 / denom)
-                                # Use inferred speedup as measured value when baseline file path is unavailable
+                                # 当基线文件路径不可用时，使用推断的加速比作为测量值
                                 speedup_of_cur_optimization = inferred_speedup
                                 opt.actual_speedup = inferred_speedup
                                 if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
@@ -1852,39 +2196,39 @@ CODE IMPLEMENTATION:
                                     self.llm_interface.logger.info(
                                         f"Speedup calc: percent-based inference failed: {e} (actual_improvement={actual_improvement})"
                                     )
-                        # Log measured speedups
+                        # 记录测量的加速
                         if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                             self.llm_interface.logger.info(
                                 f"Measured speedup for {technique} in state {state}: {speedup_of_cur_optimization:.4f}x"
                             )
-                        # ----------------- Update predicted_speedup using rolling average -------------
-                        # Use a running weighted average for speedup tracking (separate from predicted_improvement)
+                        # ----------------- 使用滚动平均值 ------------- 更新 predicted_speedup
+                        # 使用运行加权平均值进行加速跟踪（与 predicted_improvement 分开）
                         if opt.predicted_speedup is None:
                             opt.predicted_speedup = 1.0
-                        # Inverse weighting: give more weight to later iterations
-                        # cur_num_iter is the current usage count (1-based)
+                        # 逆权重：给后面的迭代更多的权重
+                        # cur_num_iter 是当前使用次数（从 1 开始）
                         cur_num_iter = new_usage
-                        # inverse_weight = 1.0 / max(1, 100 - cur_num_iter)
+                        # inverse_weight = 1.0 / 最大值(1, 100 - cur_num_iter)
                         try:
-                        #     numerator = opt.predicted_speedup * float(prev_usage) + speedup_of_cur_optimization * inverse_weight
-                        #     denom = max(float(prev_usage) + inverse_weight, 1e-6)
+                        # 分子 = opt.predicted_speedup * 浮点数(prev_usage) + speedup_of_cur_optimization * inverse_weight
+                        # 分母 = max(浮点(prev_usage) + inverse_weight, 1e-6)
                             numerator = opt.predicted_speedup * float(prev_usage) + speedup_of_cur_optimization 
                             denom = max(float(new_usage), 1e-6)
 
                             opt.predicted_speedup = numerator / denom
                         except ZeroDivisionError:
-                            # Should never happen, but guard just in case.
+                            # 不应该发生，但要警惕以防万一。
                             opt.predicted_speedup = speedup_of_cur_optimization
-                        # Log predicted vs actual speedup and weights
+                        # 记录预测与实际加速和权重
                         if hasattr(self.llm_interface, 'logger') and self.llm_interface.logger:
                             self.llm_interface.logger.info(
                                 f"Predicted speedup now {opt.predicted_speedup:.4f}x; actual speedup {getattr(opt, 'actual_speedup', None)} | prev_usage={prev_usage}"
                             )
-                        # ----------------- Update predicted_improvement -------------
-                        # Use a running weighted average where the existing
-                        # predicted value is treated as the mean of *prev_usage*
-                        # historical data points.  This keeps the value stable
-                        # yet allows it to converge as more real data arrives.
+                        # ----------------- 更新 predicted_improvement -------------
+                        # 使用运行加权平均值，其中现有
+                        # 预测值被视为 *prev_usage* 的平均值
+                        # 历史数据点。  这使价值保持稳定
+                        # 但随着更多真实数据的到来，它可以收敛。
                         if opt.predicted_improvement is None:
                             opt.predicted_improvement = 0.0
                         try:
@@ -1892,23 +2236,25 @@ CODE IMPLEMENTATION:
                                 opt.predicted_improvement * prev_usage + actual_improvement
                             ) / max(new_usage, 1)
                         except ZeroDivisionError:
-                            # Should never happen, but guard just in case.
+                            # 不应该发生，但要警惕以防万一。
                             opt.predicted_improvement = actual_improvement
-                        # ----------------- Adjust confidence score -----------------
-                        # Compute accuracy using the *previous* prediction so the
-                        # adjustment reflects the quality of that prior estimate.
+                        # ----------------- 调整置信度分数 -----------------
+                        # 使用*先前*预测计算准确性，因此
+                        # 调整反映了先前估计的质量。
                         if prev_usage > 0 and opt.predicted_improvement > 0:
-                            # Use the *old* predicted value (before update) which
-                            # is   (new_pred * new_usage - actual) / prev_usage
+                            # 使用*旧*预测值（更新前）
+                            # 是 (new_pred * new_usage - 实际) / prev_usage
                             prev_pred = (
                                 opt.predicted_improvement * new_usage - actual_improvement
                             ) / max(prev_usage, 1)
                             accuracy = actual_improvement / prev_pred if prev_pred else 0.0
-                            if 0.8 <= accuracy <= 1.2:  # Good prediction (±20%)
+                            if 0.8 <= accuracy <= 1.2:  # 良好的预测（±20%）
                                 opt.confidence_score = min(1.0, opt.confidence_score + 0.1)
-                            else:  # Poor prediction
+                            else:  # 预测不佳
                                 opt.confidence_score = max(0.1, opt.confidence_score - 0.1)
-                        # -- Log change --------------------------------------------------
+                        # -- 日志更改 --------------------------------------------------
+                        if measurement is not None:
+                            opt.last_measurement = measurement.to_dict()
                         self._log_db_change(
                             "update_optimization_result",
                             {
@@ -1922,27 +2268,41 @@ CODE IMPLEMENTATION:
                                 "predicted_speedup": opt.predicted_speedup,
                                 "actual_speedup": opt.actual_speedup,
                                 "initial_elapsed_cycles": opt.initial_elapsed_cycles,
+                                "last_measurement": opt.last_measurement,
                             },
                         )
-                        # For first-use entries we leave confidence as is.
+                        # 对于首次使用的条目，我们保留原样的信心。
                         break
 
-    def update_composite_optimization_result(self, state: str, composite_id: str, actual_improvement: float):
-        """Update composite optimization result for tracking and learning."""
+    def update_composite_optimization_result(
+        self,
+        state: str,
+        composite_id: str,
+        actual_improvement: float,
+        measurement: Measurement | None = None,
+    ):
+        """
+        更新复合优化结果以进行跟踪和学习。
+
+        参数:
+            state: 工作流节点读取并按约定更新的共享状态。
+            composite_id: 调用方提供的 `composite_id` 参数。
+            actual_improvement: 调用方提供的 `actual_improvement` 参数。
+        """
         if state in self.composite_optimizations:
             for comp_opt in self.composite_optimizations[state]:
                 if comp_opt.get_composite_id() == composite_id:
                     comp_opt.actual_improvement = actual_improvement
                     comp_opt.usage_count += 1
                     comp_opt.last_updated = datetime.now().isoformat()
-                    # Update confidence score
+                    # 更新置信度得分
                     if comp_opt.predicted_improvement > 0:
                         accuracy = actual_improvement / comp_opt.predicted_improvement
                         if 0.8 <= accuracy <= 1.2:
                             comp_opt.confidence_score = min(1.0, comp_opt.confidence_score + 0.1)
                         else:
                             comp_opt.confidence_score = max(0.1, comp_opt.confidence_score - 0.1)
-                    # -- Log change --------------------------------------------------
+                    # -- 日志更改 --------------------------------------------------
                     self._log_db_change(
                         "update_composite_optimization_result",
                         {
@@ -1952,26 +2312,32 @@ CODE IMPLEMENTATION:
                             "predicted_improvement": comp_opt.predicted_improvement,
                             "confidence_score": comp_opt.confidence_score,
                             "usage_count": comp_opt.usage_count,
+                            "measurement": measurement.to_dict() if measurement is not None else None,
                         },
                     )
                     break
 
     def add_composite_optimization(self, composite: CompositeOptimization):
-        """Add a composite optimization to the database."""
+        """
+        向数据库添加复合优化。
+
+        参数:
+            composite: 调用方提供的 `composite` 参数。
+        """
         state = composite.state
         if state not in self.composite_optimizations:
             self.composite_optimizations[state] = []
         
-        # Check if this composite already exists
+        # 检查该组合是否已存在
         for existing_comp in self.composite_optimizations[state]:
             if existing_comp.get_composite_id() == composite.get_composite_id():
-                # Update existing composite
+                # 更新现有复合材料
                 existing_comp.predicted_improvement = composite.predicted_improvement
                 existing_comp.reason = composite.reason
                 existing_comp.side_effects = composite.side_effects
                 existing_comp.last_updated = datetime.now().isoformat()
 
-                # Log update event
+                # 记录更新事件
                 self._log_db_change(
                     "update_composite_optimization",
                     {
@@ -1982,11 +2348,11 @@ CODE IMPLEMENTATION:
                 )
                 return
         
-        # Add new composite optimization
+        # 添加新的复合优化
         composite.last_updated = datetime.now().isoformat()
         self.composite_optimizations[state].append(composite)
 
-        # Log creation event
+        # 日志创建事件
         self._log_db_change(
             "add_composite_optimization",
             {
@@ -1997,14 +2363,21 @@ CODE IMPLEMENTATION:
         )
 
     def add_new_optimization(self, state: str, technique: str, predicted_improvement: float):
-        """Add a new optimization technique to the database."""
+        """
+        向数据库添加新的优化技术。
+
+        参数:
+            state: 工作流节点读取并按约定更新的共享状态。
+            technique: 调用方提供的 `technique` 参数。
+            predicted_improvement: 调用方提供的 `predicted_improvement` 参数。
+        """
         if state not in self.optimization_strategies:
             self.optimization_strategies[state] = {"optimizations": []}
         
-        # Check if this technique already exists for this state
+        # 检查此状态是否已存在此技术
         for existing_opt in self.optimization_strategies[state].get("optimizations", []):
             if existing_opt.technique == technique:
-                # Update existing optimization
+                # 更新现有优化
                 existing_opt.predicted_improvement = predicted_improvement
                 existing_opt.last_updated = datetime.now().isoformat()
 
@@ -2018,7 +2391,7 @@ CODE IMPLEMENTATION:
                 )
                 return
         
-        # Add new optimization
+        # 添加新的优化
         new_opt = OptimizationEntry(
             technique=technique,
             predicted_improvement=predicted_improvement,
@@ -2038,12 +2411,23 @@ CODE IMPLEMENTATION:
 
     def create_parameter_tuned_optimization(self, base_technique: str, parameters: Dict[str, Any], 
                                           predicted_improvement: float, reason: str = "") -> str:
-        """Create a parameter-tuned optimization technique name."""
-        # Create a unique technique name that includes parameters
+        """
+        创建参数调整的优化技术名称。
+
+        参数:
+            base_technique: 调用方提供的 `base_technique` 参数。
+            parameters: 调用方提供的 `parameters` 参数。
+            predicted_improvement: 调用方提供的 `predicted_improvement` 参数。
+            reason: 调用方提供的 `reason` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
+        # 创建包含参数的唯一技术名称
         param_str = "_".join(f"{k}_{v}" for k, v in parameters.items())
         tuned_technique = f"{base_technique}_tuned_{param_str}"
         
-        # Store parameter information for later use
+        # 存储参数信息以供以后使用
         if not hasattr(self, 'parameter_tuned_techniques'):
             self.parameter_tuned_techniques = {}
         
@@ -2055,7 +2439,7 @@ CODE IMPLEMENTATION:
             "created_at": datetime.now().isoformat()
         }
 
-        # Log tuned technique creation
+        # 对数调整技术创建
         self._log_db_change(
             "create_parameter_tuned_optimization",
             {
@@ -2068,9 +2452,18 @@ CODE IMPLEMENTATION:
         
         return tuned_technique
 
-    # Legacy compatibility
+    # 旧版兼容性
     def get_state_from_metrics(self, metrics: dict, performance_pattern: str = "") -> str:
-        """Legacy method - use get_state_from_ncu_report instead."""
+        """
+        传统方法 - 使用 get_state_from_ncu_report 代替。
+
+        参数:
+            metrics: 性能分析或正确性检查产生的指标集合。
+            performance_pattern: 调用方提供的 `performance_pattern` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         print("Warning: get_state_from_metrics is deprecated. Use get_state_from_ncu_report instead.")
         import asyncio
         try:
@@ -2080,9 +2473,14 @@ CODE IMPLEMENTATION:
             return self._fallback_state_matching(self._fallback_state_analysis(performance_pattern, metrics))
 
     def get_database_stats(self) -> dict:
-        """Get statistics about the optimization database."""
+        """
+        获取有关优化数据库的统计信息。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
+        """
         
-        # Count total optimizations
+        # 计算总优化次数
         total_optimizations = 0
         total_composite_optimizations = 0
         state_counts = {}
@@ -2099,7 +2497,7 @@ CODE IMPLEMENTATION:
             else:
                 state_counts[state] = len(composite_opts)
         
-        # Calculate average improvements
+        # 计算平均改进
         improvements = []
         for state_data in self.optimization_strategies.values():
             for opt in state_data.get("optimizations", []):
@@ -2125,12 +2523,17 @@ CODE IMPLEMENTATION:
         }
 
 
-# Maintain backward compatibility
+# 保持向后兼容性
 OptimizationDatabase = GPUOptimizationDatabase 
 
 
 def print_database_summary(db: GPUOptimizationDatabase):
-    """Print a human-readable summary of the optimisation database."""
+    """
+    打印优化数据库的人类可读摘要。
+
+    参数:
+        db: 调用方提供的 `db` 参数。
+    """
     import json as _json
 
     print("\n=== Optimisation Database Summary ===\n")
@@ -2149,7 +2552,7 @@ def print_database_summary(db: GPUOptimizationDatabase):
             print("  (no optimisation strategies)")
         print()
 
-    # Optional: print simple database stats
+    # 可选：打印简单的数据库统计信息
     try:
         stats = db.get_database_stats()
         print("Database statistics:\n" + _json.dumps(stats, indent=2))
@@ -2159,7 +2562,12 @@ def print_database_summary(db: GPUOptimizationDatabase):
 
 
 def _main():
-    """Entry-point for quick manual testing via the command line."""
+    """
+    通过命令行进行快速手动测试的入口点。
+
+    异常:
+        FileNotFoundError: 输入、外部调用或状态不满足执行要求时抛出。
+    """
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -2179,7 +2587,7 @@ def _main():
         default="",
         help="Optional path to a text file containing a prompt to send to the LLM for quick testing",
     )
-    # ------------ Development test for analyse+plan workflow ------------
+    # ------------ 分析+计划工作流程的开发测试 ------------
     parser.add_argument(
         "--ncu_report_file",
         default="",
@@ -2219,7 +2627,7 @@ def _main():
     print_database_summary(db)
 
     # ------------------------------------------------------------
-    # Test helper: regenerate markdown from JSON and show a preview
+    # 测试助手：从 JSON 重新生成 Markdown 并显示预览
     # ------------------------------------------------------------
     if getattr(args, "regenerate_from_json", False):
         print("\n>>> Testing markdown regeneration from JSON snapshot...\n")
@@ -2234,10 +2642,10 @@ def _main():
             print(f"Could not read regenerated markdown: {exc}")
 
     # ------------------------------------------------------------
-    # Quick test: print the available-optimisations summary after
-    # the database has been loaded.  This helps developers verify
-    # that techniques are parsed correctly and the helper renders
-    # them in the expected format.
+    # 快速测试：打印可用优化摘要
+    # 数据库已加载。  这有助于开发人员验证
+    # 技术被正确解析并且帮助器呈现
+    # 它们以预期的格式。
     # ------------------------------------------------------------
     optim_summary = db._build_available_optimisations_summary()
     print("\n=== Available Optimisations Summary ===\n")
@@ -2247,8 +2655,8 @@ def _main():
         print("(no optimisation techniques found)")
 
     # ==============================================================
-    # Developer test: end-to-end analyse_performance_state +
-    # generate_optimization_plan flow.
+    # 开发者测试：端到端analyse_performance_state +
+    # generate_optimization_plan 流量。
     # ==============================================================
     if args.ncu_report_file and args.code_impl_file:
         ncu_path = Path(args.ncu_report_file).expanduser().resolve()
@@ -2262,7 +2670,7 @@ def _main():
             ncu_report_text = ncu_path.read_text(encoding="utf-8")
             code_impl_text = code_path.read_text(encoding="utf-8")
 
-            # Load optional metrics JSON
+            # 加载可选指标 JSON
             metrics: dict = {}
             if args.metrics_json:
                 metrics_path = Path(args.metrics_json).expanduser().resolve()
@@ -2276,12 +2684,13 @@ def _main():
             import asyncio, json as _json
 
             async def _run_flow():
+                """运行 `run_flow` 所表示的内部步骤；该函数不属于稳定的公开接口。"""
                 print("\n>>> Running analyse_performance_state...")
                 profile = await db.analyze_performance_state(
                     ncu_report_text, metrics, code_impl_text
                 )
 
-                # Represent the analysis as JSON for the plan generator
+                # 将计划生成器的分析表示为 JSON
                 analysis_json_str = _json.dumps(asdict(profile), indent=2)
 
                 print("Analysis result:\n" + analysis_json_str + "\n")
@@ -2296,15 +2705,15 @@ def _main():
             try:
                 asyncio.run(_run_flow())
             except RuntimeError:
-                # If we're already inside an asyncio loop (e.g. Jupyter) fall back
+                # 如果我们已经处于 asyncio 循环 (e.g.Jupyter) 中，则回退
                 loop = asyncio.get_event_loop()
                 loop.run_until_complete(_run_flow())
 
     # --------------------------------------------------------------
-    # Optional quick test: send user-supplied prompt to the LLM and
-    # print the raw response.  This is **not** part of the normal
-    # optimisation workflow – it is merely a convenience helper for
-    # developers who want to sanity-check LLM connectivity.
+    # 可选的快速测试：将用户提供的提示发送给 LLM 并
+    # 打印原始响应。  这**不是**正常的一部分
+    # 优化工作流程——它只是一个方便的帮手
+    # 想要对 LLM 连接进行健全性检查的开发人员。
     # --------------------------------------------------------------
     if args.prompt_file:
         prompt_path = Path(args.prompt_file).expanduser().resolve()
@@ -2321,4 +2730,4 @@ def _main():
 
 
 if __name__ == "__main__":
-    _main() 
+    _main()

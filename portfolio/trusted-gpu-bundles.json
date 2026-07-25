@@ -1,0 +1,19 @@
+{
+  "schema_version": "trusted-gpu-bundles/v1",
+  "source_bundle_digests": [
+    "ef59ac94e91569ee5626b9893042bce2a6fafd134c3d477ea8cc51bd56587f04"
+  ],
+  "benchmark_protocol_ids": [
+    "trusted-smoke-v1"
+  ],
+  "generated_jobs_enabled": false,
+  "bundles": [
+    {
+      "id": "vector-add-smoke-v1",
+      "source_bundle_digest": "ef59ac94e91569ee5626b9893042bce2a6fafd134c3d477ea8cc51bd56587f04",
+      "driver_digest": "17a37afb4b00f094673093ff626a228e4e882fc732016520dc620918b7080034",
+      "benchmark_protocol_id": "trusted-smoke-v1"
+    }
+  ],
+  "notes": "Populate source_bundle_digests only with reviewed smoke bundles written to Control CAS."
+}

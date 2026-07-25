@@ -12,4 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""导出服务端进程管理辅助函数。"""
+
 from .process_management import safe_kill_process

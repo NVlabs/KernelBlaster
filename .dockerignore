@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+out
+artifacts
+*.ncu-rep
+*.log
+.env
+.env.*
+!.env.example

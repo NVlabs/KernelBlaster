@@ -18,6 +18,7 @@ import os
 import sys
 import signal
 import glob
+import shutil
 from loguru import logger
 from pathlib import Path
 import json
@@ -28,8 +29,18 @@ ROOT_DIR = SCRIPT_DIR.parent
 sys.path.insert(0, str(ROOT_DIR))
 
 from src.kernelblaster.config import config, GPUType
+from src.kernelblaster.llm import get_llm_provider
+from src.kernelblaster.observability import (
+    RunRecorder,
+    event_context,
+    record_event,
+    set_run_recorder,
+)
+from src.kernelblaster.outcomes import RunStatus
 from src.kernelblaster.resources import *
+from src.kernelblaster.storage import StateStore, state_storage_requested
 from src.kernelblaster.workflow import run_workflow
+from src.kernelblaster.agents.database import LLMInterface, OptimizationDatabase
 
 from data import get_dataset
 from utils.arguments import *
@@ -39,6 +50,119 @@ GPU_SERVER = None
 CLEANUP_IN_PROGRESS = False
 SIGNAL_COUNT = 0
 COMPREHENSIVE_ANALYSIS_CACHE = None
+RUN_RECORDER = None
+TRUSTED_RMSNORM_SUITE = (
+    ROOT_DIR / "portfolio" / "suites" / "rmsnorm.json"
+).resolve()
+TRUSTED_RMSNORM_TASK_IDS = ("036",)
+TRUSTED_RMSNORM_ROLLOUTS = 2
+TRUSTED_RMSNORM_STEPS = 2
+
+
+def resolve_target_gpu(gpu: str | None) -> GPUType:
+    """Resolve the GPU whose server URL should be configured for this run."""
+    if gpu is None:
+        raise ValueError("--gpu or GPU_TYPE is required; target selection is explicit")
+    return GPUType(gpu)
+
+
+def _normalize_task_id(value: object) -> str:
+    if isinstance(value, bool):
+        raise ValueError(f"Invalid portfolio task ID: {value!r}")
+    text = str(value).strip()
+    if not text.isdigit():
+        raise ValueError(f"Invalid portfolio task ID: {value!r}")
+    task_number = int(text)
+    if task_number < 1:
+        raise ValueError(f"Invalid portfolio task ID: {value!r}")
+    return f"{task_number:03d}"
+
+
+def _parse_problem_ids(problem_numbers: str | None) -> list[str]:
+    if not problem_numbers:
+        raise ValueError(
+            "--portfolio-suite requires explicit --problem-numbers for validation."
+        )
+    task_ids: list[str] = []
+    for raw_part in problem_numbers.split(","):
+        part = raw_part.strip()
+        if not part:
+            raise ValueError("--problem-numbers contains an empty entry.")
+        if "-" in part and not part.startswith("-"):
+            start_text, end_text = part.split("-", 1)
+            start = int(start_text)
+            end = int(end_text)
+            if start > end:
+                raise ValueError(f"Invalid descending problem range: {part!r}")
+            task_ids.extend(_normalize_task_id(number) for number in range(start, end + 1))
+        else:
+            task_ids.append(_normalize_task_id(part))
+    if len(task_ids) != len(set(task_ids)):
+        raise ValueError("--problem-numbers contains duplicate tasks.")
+    return task_ids
+
+
+def resolve_portfolio_suite(
+    path: Path,
+    *,
+    problem_numbers: str | None,
+    rollouts: int,
+    steps: int,
+    trusted_pilot: bool = False,
+) -> dict:
+    """Validate a suite against the requested task set and resolved pilot shape."""
+    resolved_path = path.resolve()
+    try:
+        payload = json.loads(resolved_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"Cannot load portfolio suite {resolved_path}: {error}") from error
+    if not isinstance(payload, dict):
+        raise ValueError("Portfolio suite must be a JSON object.")
+    tasks = payload.get("tasks")
+    if not isinstance(tasks, list) or not tasks:
+        raise ValueError("Portfolio suite must contain a non-empty tasks list.")
+
+    task_ids: list[str] = []
+    for task in tasks:
+        if not isinstance(task, dict):
+            raise ValueError("Every portfolio suite task must be an object.")
+        raw_id = task.get("id", task.get("number"))
+        task_id = _normalize_task_id(raw_id)
+        if "number" in task and _normalize_task_id(task["number"]) != task_id:
+            raise ValueError(f"Portfolio task id/number disagree for {task!r}.")
+        task_ids.append(task_id)
+    if len(task_ids) != len(set(task_ids)):
+        raise ValueError("Portfolio suite contains duplicate task IDs.")
+
+    requested_task_ids = _parse_problem_ids(problem_numbers)
+    if set(task_ids) != set(requested_task_ids):
+        raise ValueError(
+            "Portfolio suite task IDs do not match --problem-numbers: "
+            f"suite={task_ids}, requested={requested_task_ids}."
+        )
+
+    if trusted_pilot and (
+        resolved_path != TRUSTED_RMSNORM_SUITE
+        or tuple(task_ids) != TRUSTED_RMSNORM_TASK_IDS
+        or rollouts != TRUSTED_RMSNORM_ROLLOUTS
+        or steps != TRUSTED_RMSNORM_STEPS
+    ):
+        raise ValueError(
+            "Trusted RMSNorm pilot must use portfolio/suites/rmsnorm.json and "
+            "resolve to task 036 with 2 rollouts x 2 steps."
+        )
+
+    try:
+        suite_source = str(resolved_path.relative_to(ROOT_DIR.resolve()))
+    except ValueError:
+        suite_source = str(resolved_path)
+    payload["source"] = suite_source
+    payload["resolved"] = {
+        "task_ids": task_ids,
+        "rollouts": rollouts,
+        "steps": steps,
+    }
+    return payload
 
 
 def load_comprehensive_analysis_results():
@@ -274,7 +398,7 @@ async def process_problem(
     semaphore,
     workflow_config,
     timeout_minutes,
-) -> tuple[dict[str, Path], bool]:
+) -> tuple[dict[str, Path], RunStatus]:
     problem_id = entry["id"]
     user_message = entry.get("user_message", "")
     reference_code = None
@@ -324,15 +448,17 @@ async def process_problem(
             format=config.CUSTOM_LOGGER_FORMAT,
             filter=lambda record: record["extra"].get("problem_id") == problem_id,
         )
-        result = await run_workflow(
-            problem_id,
-            user_message,
-            reference_code,
-            folder,
-            workflow_config,
-            job_logger=job_logger,
-            timeout_seconds=timeout_minutes * 60,
-        )
+        with event_context(task_id=task_id or problem_id, stage="workflow"):
+            result = await run_workflow(
+                problem_id,
+                user_message,
+                reference_code,
+                folder,
+                workflow_config,
+                job_logger=job_logger,
+                timeout_seconds=timeout_minutes * 60,
+                shared_database=workflow_config.shared_optimization_database,
+            )
         if result.success:
             logger.info(
                 f"Successfully generated codes for {problem_id}:\n{json.dumps(result.generated_codes, indent=2)}"
@@ -341,11 +467,37 @@ async def process_problem(
             logger.error(
                 f"❌ Failed to generate codes for {problem_id}: {result.error}"
             )
+        record_event(
+            "task_outcome",
+            status=(
+                "ok"
+                if result.outcome.status.value in {"improved", "no_improvement"}
+                else "error"
+            ),
+            task_id=task_id or problem_id,
+            stage="terminal",
+            data={
+                "task_id": task_id or problem_id,
+                "outcome": result.outcome.status.value,
+                "profiling_mode": result.outcome.profiling_mode,
+                "reason": result.outcome.reason,
+                "reason_code": result.outcome.reason_code.value,
+                "execution_status": result.outcome.execution_status.value,
+                "correctness_status": result.outcome.correctness_status.value,
+                "timing_status": result.outcome.timing_status.value,
+                "diagnostic_status": result.outcome.diagnostic_status.value,
+                "measurement": (
+                    result.outcome.measurement.to_dict()
+                    if result.outcome.measurement is not None else None
+                ),
+                "metrics": result.outcome.metrics,
+            },
+        )
         job_logger.remove(job_logger_id)
-    return result.generated_codes, result.success
+    return result.generated_codes, result.outcome.status
 
 
-async def async_main():
+async def async_main() -> int:
     parser = argparse.ArgumentParser()
     add_common_arguments(parser)
     parser.add_argument(
@@ -377,8 +529,77 @@ async def async_main():
         default=None,
         help="URL of existing GPU server to use (e.g., http://localhost:2002)",
     )
+    parser.add_argument(
+        "--run-record-dir",
+        type=Path,
+        default=None,
+        help="Write run_manifest.json, events.jsonl, and summary.json here.",
+    )
+    parser.add_argument(
+        "--portfolio-suite",
+        type=Path,
+        default=None,
+        help="Resolved portfolio suite JSON to embed in the run manifest.",
+    )
+    parser.add_argument("--state-dir", type=Path, default=None)
+    parser.add_argument("--sqlite-path", type=Path, default=None)
+    parser.add_argument("--cas-dir", type=Path, default=None)
     args = parser.parse_args()
     validate_common_arguments(parser, args)
+
+    suite_config = {}
+    if args.portfolio_suite is not None:
+        try:
+            suite_config = resolve_portfolio_suite(
+                args.portfolio_suite,
+                problem_numbers=args.problem_numbers,
+                rollouts=args.rl_iterations,
+                steps=args.rl_rollout_steps,
+                trusted_pilot=args.experiment_name == "trusted-rmsnorm-pilot",
+            )
+        except ValueError as error:
+            parser.error(str(error))
+
+    state_store = None
+    if (
+        args.state_dir is not None
+        or args.sqlite_path is not None
+        or args.cas_dir is not None
+        or state_storage_requested()
+    ):
+        try:
+            state_store = StateStore(
+                state_dir=args.state_dir,
+                sqlite_path=args.sqlite_path,
+                cas_dir=args.cas_dir,
+            )
+        except (OSError, PermissionError, ValueError) as error:
+            parser.error(str(error))
+
+    if args.run_record_dir is not None:
+        global RUN_RECORDER
+        config.MODEL = args.model
+        provider = get_llm_provider(type(config))
+        RUN_RECORDER = RunRecorder(
+            args.run_record_dir,
+            model=args.model,
+            provider_config=provider.public_config(),
+            suite=suite_config,
+            gpu_target=args.gpu,
+            repo_root=ROOT_DIR,
+            state_store=state_store,
+        )
+        set_run_recorder(RUN_RECORDER)
+        record_event(
+            "portfolio_run_started",
+            data={
+                "dataset": args.dataset,
+                "subset": args.subset,
+                "problem_numbers": args.problem_numbers,
+                "rollouts": args.rl_iterations,
+                "steps": args.rl_rollout_steps,
+            },
+        )
 
     dataset_str = args.dataset
 
@@ -434,31 +655,39 @@ async def async_main():
     )
     logger.info(f"Logging to {log_file}")
 
-    # initialize resources
-    try:
-        global COMPILE_SERVER, GPU_SERVER
-        COMPILE_SERVER = CompileServer(logger, OUT_DIR, port=args.compiler_port)
-        
-        # Use existing GPU server if URL provided, otherwise create new one
-        if args.gpu_server_url:
-            logger.info(f"Using existing GPU server at {args.gpu_server_url}")
-            config.set_gpu_server_url(GPUType.current(), args.gpu_server_url)
-            GPU_SERVER = None  # No need to manage our own server
-        else:
-            GPU_SERVER = GPUServer(logger, OUT_DIR, gpu=args.gpu, port=args.gpu_port)
-            GPU_SERVER.wait_for_connection()
-            if GPU_SERVER.is_managed:
-                assert (
-                    args.gpu is None or args.gpu == GPUType.current().value
-                ), f"GPU type mismatch: {args.gpu} != {GPUType.current().value}. Please supply your own GPU_SERVER_URL_<GPU_TYPE> since --gpu differs from the current GPU type."
-                config.set_gpu_server_url(GPUType.current(), GPU_SERVER.url)
-        
-        COMPILE_SERVER.wait_for_connection()
-        if COMPILE_SERVER.is_managed:
-            config.set_compile_server_url(COMPILE_SERVER.url)
-    except Exception as e:
-        logger.error(f"Failed to initialize resources: {e}")
-        return
+    # Legacy workflows may use explicitly configured remote services during the
+    # transition, but Control must never spawn a local compiler or GPU server.
+    if args.cuda or args.cuda_perf or args.benchmark:
+        try:
+            global COMPILE_SERVER, GPU_SERVER
+            target_gpu = resolve_target_gpu(args.gpu)
+            if not config.COMPILE_SERVER_URL:
+                raise RuntimeError(
+                    "Control-local CompileServer startup is disabled. Submit gpu-job/v1 through "
+                    "the Control API, or explicitly configure a legacy COMPILE_SERVER_URL."
+                )
+            if args.gpu_server_url:
+                logger.info(f"Using existing GPU server at {args.gpu_server_url}")
+                config.set_gpu_server_url(target_gpu, args.gpu_server_url)
+            if config.get_gpu_server_url(target_gpu) is None:
+                raise RuntimeError(
+                    "Managed local GPU server startup is disabled. Use the Control gpu-job/v1 API "
+                    "or explicitly configure a legacy GPU server URL."
+                )
+            COMPILE_SERVER = None
+            GPU_SERVER = None
+            logger.info(
+                "Using explicitly configured legacy remote services; Control will not "
+                "create local compile or GPU server processes."
+            )
+        except Exception as e:
+            logger.error(f"Failed to initialize resources: {e}")
+            record_event(
+                "runtime_initialization_failed",
+                status="error",
+                data={"error_type": type(e).__name__},
+            )
+            return 2
 
     config.print_config(logger)
 
@@ -473,18 +702,26 @@ async def async_main():
     tasks = []
 
     workflow_config = create_workflow_config(args)
+    workflow_config.shared_optimization_database = OptimizationDatabase(
+        OUT_DIR / "optimization_database.md",
+        None,
+        LLMInterface(args.model, logger),
+    )
 
     logger.info(f"Processing {len(dataset)} problems")
     for entry in dataset_iter:
         problem_id = entry["id"]
-        folder = OUT_DIR / problem_id
+        folder = (OUT_DIR / problem_id).resolve()
+        if folder == OUT_DIR.resolve() or not folder.is_relative_to(OUT_DIR.resolve()):
+            logger.error(f"Skipping unsafe task output path for {problem_id!r}: {folder}")
+            continue
         if workflow_config.should_skip_folder(folder):
             continue
         elif args.no_resume:
             logger.warning(
                 f"Retrying {problem_id} from scratch because --no-resume flag is set."
             )
-            os.system(f"rm -r {folder}/*")
+            shutil.rmtree(folder, ignore_errors=True)
         elif folder.exists():
             logger.debug(f"Resuming {problem_id}")
 
@@ -503,13 +740,28 @@ async def async_main():
 
     logger.info(f"Waiting for {len(tasks)} tasks to complete")
     # Wait for all tasks to complete
+    exit_code = 0
     if tasks:
         logger.info(
             f"Processing {len(tasks)} problems with concurrency {args.concurrency}"
         )
-        await asyncio.gather(*tasks)
+        task_results = await asyncio.gather(*tasks, return_exceptions=True)
+        for task_result in task_results:
+            if isinstance(task_result, Exception):
+                exit_code = 2
+                logger.error(
+                    f"A task escaped workflow error isolation: "
+                    f"{type(task_result).__name__}: {task_result}"
+                )
+            elif task_result[1] in {
+                RunStatus.FAILED,
+                RunStatus.TIMEOUT,
+                RunStatus.BLOCKED,
+            }:
+                exit_code = 2
     else:
         logger.info("No problems to process")
+    return exit_code
 
 
 def main():
@@ -517,16 +769,21 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
     
+    exit_code = 0
     try:
-        asyncio.run(async_main())
+        exit_code = asyncio.run(async_main())
     except KeyboardInterrupt:
         logger.error("KeyboardInterrupt detected, cleaning up...")
+        exit_code = 130
     except Exception as e:
         logger.error(f"Unhandled exception: {e}")
         raise e
     finally:
         cleanup_servers()
+        if RUN_RECORDER is not None:
+            RUN_RECORDER.close()
+    return exit_code
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

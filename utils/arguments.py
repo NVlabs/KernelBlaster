@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse
+import os
 from pathlib import Path
 
 from src.kernelblaster.config import WorkflowConfig, config, GPUType
@@ -113,7 +114,7 @@ def add_common_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--gpu",
         type=str,
-        default=GPUType.current().value,
+        default=os.getenv("GPU_TYPE"),
         choices=[gpu.value for gpu in GPUType],
         help="GPU to use for generation.",
     )
@@ -179,7 +180,7 @@ def validate_common_arguments(parser, args):
 
 def create_workflow_config(args: argparse.Namespace) -> WorkflowConfig:
     if args.gpu is None:
-        args.gpu = GPUType.current().value
+        raise ValueError("--gpu or GPU_TYPE is required; Control does not probe local hardware")
 
     # Update config.MODEL if model argument is provided (so config print shows correct model)
     if args.model != config.MODEL:

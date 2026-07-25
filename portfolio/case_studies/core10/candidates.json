@@ -1,0 +1,253 @@
+{
+  "schema_version": "2.0",
+  "gpu_target": "sm_86",
+  "provenance": "manual_core10_optimization",
+  "runtime_contract": {
+    "device": "cuda",
+    "gpu_architectures": ["sm_86"],
+    "input_dtype": "fp16",
+    "accumulation_dtype": "fp32",
+    "layout": "contiguous_row_major",
+    "stream_mode": "legacy_default",
+    "max_streams": 1,
+    "graph_capture": false,
+    "directions": ["inference_forward"],
+    "backward": false,
+    "fallback": "none",
+    "production_ready": false
+  },
+  "numerics_profiles": {
+    "fp16_dot_fp32_accum": {
+      "input_dtype": "fp16",
+      "reference_dtype": "fp32",
+      "atol": 0.01,
+      "rtol": 0.01
+    },
+    "fp16_norm_fp32_accum": {
+      "input_dtype": "fp16",
+      "reference_dtype": "fp32",
+      "atol": 0.005,
+      "rtol": 0.01
+    },
+    "fp16_cross_entropy_fp32_accum": {
+      "input_dtype": "fp16",
+      "target_dtype": "int64",
+      "reference_dtype": "fp32",
+      "atol": 0.01,
+      "rtol": 0.01
+    }
+  },
+  "tasks": [
+    {
+      "id": "004",
+      "name": "row_block_half2",
+      "source": "004_matvec_sm86.cu",
+      "extra_correctness_drivers": ["edge_drivers/004_matvec_edge_driver.cpp"],
+      "capability_status": "hardened",
+      "supported_cases": [
+        {"case_id": "canonical", "class": "canonical", "shape": {"M": 256, "K": 131072}, "correctness": true, "performance": true},
+        {"case_id": "boundary-1x1", "class": "boundary", "shape": {"M": 1, "K": 1}, "correctness": true, "performance": false},
+        {"case_id": "odd-17x31", "class": "odd", "shape": {"M": 17, "K": 31}, "correctness": true, "performance": false},
+        {"case_id": "odd-33x65", "class": "odd", "shape": {"M": 33, "K": 65}, "correctness": true, "performance": false},
+        {"case_id": "neighbor-257x129", "class": "neighbor", "shape": {"M": 257, "K": 129}, "correctness": true, "performance": false}
+      ],
+      "numerics_profile": "fp16_dot_fp32_accum",
+      "resource_policy": {"kind": "none", "ownership": "none", "workspace_bytes": 0},
+      "reentrant_under_contract": true,
+      "requires_prewarm": false
+    },
+    {
+      "id": "007",
+      "name": "cublas_gemm_ex",
+      "source": "007_small_k_matmul_cublas.cu",
+      "extra_correctness_drivers": [
+        "edge_drivers/007_small_k_matmul_edge_driver.cpp",
+        "edge_drivers/007_resource_lifecycle_driver.cpp"
+      ],
+      "candidate_only_correctness_drivers": [
+        "correctness_drivers/007_small_k_matmul_canonical_driver.cpp"
+      ],
+      "capability_status": "hardened",
+      "supported_cases": [
+        {"case_id": "canonical", "class": "canonical", "shape": {"M": 16384, "N": 16384, "K": 32}, "correctness": true, "correctness_protocol": "official_plus_candidate_only_three_seed_driver", "performance": true},
+        {"case_id": "boundary-1x1x1", "class": "boundary", "shape": {"M": 1, "N": 1, "K": 1}, "correctness": true, "correctness_protocol": "three_seed_edge_driver", "performance": false},
+        {"case_id": "odd-17x19x7", "class": "odd", "shape": {"M": 17, "N": 19, "K": 7}, "correctness": true, "correctness_protocol": "three_seed_edge_driver", "performance": false},
+        {"case_id": "neighbor-65x33x31", "class": "neighbor", "shape": {"M": 65, "N": 33, "K": 31}, "correctness": true, "correctness_protocol": "three_seed_edge_driver", "performance": false}
+      ],
+      "numerics_profile": "fp16_dot_fp32_accum",
+      "resource_policy": {
+        "kind": "cublas_handle",
+        "ownership": "thread_device_raii",
+        "workspace_bytes": 0,
+        "initialization_phase": "correctness_or_warmup",
+        "timed_region_allocations": false,
+        "release_phase": "host_thread_exit",
+        "stream_binding": "cudaStreamLegacy",
+        "validation_protocol": {
+          "kind": "same_thread_reuse_dual_host_thread_release_v1",
+          "same_thread_calls": 5,
+          "host_threads": 2,
+          "calls_per_host_thread": 5,
+          "warmup_thread_waves": 4,
+          "measured_thread_waves_per_group": 8,
+          "measured_groups": 2,
+          "leak_allowance_bytes": 65536,
+          "seeds": [0, 42, 20260721],
+          "shape": {"M": 17, "N": 19, "K": 7},
+          "driver": "edge_drivers/007_resource_lifecycle_driver.cpp"
+        }
+      },
+      "reentrant_under_contract": true,
+      "requires_prewarm": true
+    },
+    {
+      "id": "019",
+      "name": "pack8_relu",
+      "source": "019_relu_sm86.cu",
+      "capability_status": "legacy_research_only",
+      "supported_cases": [
+        {"case_id": "canonical", "class": "canonical", "shape": {"B": 16, "dim": 16384}, "correctness": true, "performance": true}
+      ]
+    },
+    {
+      "id": "023",
+      "name": "cached_softmax",
+      "source": "023_softmax_sm86.cu",
+      "capability_status": "legacy_research_only",
+      "supported_cases": [
+        {"case_id": "canonical", "class": "canonical", "shape": {"B": 16, "dim": 16384}, "correctness": true, "performance": true}
+      ]
+    },
+    {
+      "id": "026",
+      "name": "pack8_gelu",
+      "source": "026_gelu_sm86.cu",
+      "capability_status": "legacy_research_only",
+      "supported_cases": [
+        {"case_id": "canonical", "class": "canonical", "shape": {"B": 16, "dim": 16384}, "correctness": true, "performance": true}
+      ]
+    },
+    {
+      "id": "036",
+      "name": "rmsnorm_v3c",
+      "source": "../rmsnorm/best_rmsnorm_sm86.cu",
+      "extra_correctness_drivers": ["../rmsnorm/edge_driver.cpp"],
+      "provenance": "day8_10_deep_case",
+      "capability_status": "hardened",
+      "supported_cases": [
+        {"case_id": "canonical", "class": "canonical", "shape": {"B": 16, "C": 64, "D1": 256, "D2": 256}, "correctness": true, "performance": true},
+        {"case_id": "boundary-1x4x1x3", "class": "boundary", "shape": {"B": 1, "C": 4, "D1": 1, "D2": 3}, "correctness": true, "performance": false},
+        {"case_id": "neighbor-c63", "class": "neighbor", "shape": {"B": 1, "C": 63, "D1": 1, "D2": 7}, "correctness": true, "performance": false},
+        {"case_id": "aligned-c64", "class": "neighbor", "shape": {"B": 2, "C": 64, "D1": 3, "D2": 5}, "correctness": true, "performance": false},
+        {"case_id": "neighbor-c65-small", "class": "neighbor", "shape": {"B": 1, "C": 65, "D1": 1, "D2": 17}, "correctness": true, "performance": false},
+        {"case_id": "neighbor-c65-odd", "class": "odd", "shape": {"B": 2, "C": 65, "D1": 17, "D2": 19}, "correctness": true, "performance": false}
+      ],
+      "numerics_profile": "fp16_norm_fp32_accum",
+      "resource_policy": {"kind": "none", "ownership": "none", "workspace_bytes": 0},
+      "reentrant_under_contract": true,
+      "requires_prewarm": false
+    },
+    {
+      "id": "040",
+      "name": "multiblock_layernorm",
+      "source": "040_layernorm_sm86.cu",
+      "extra_correctness_drivers": [
+        "edge_drivers/040_layernorm_edge_driver.cpp",
+        "edge_drivers/040_resource_lifecycle_driver.cpp"
+      ],
+      "capability_status": "hardened",
+      "supported_cases": [
+        {"case_id": "canonical", "class": "canonical", "shape": {"B": 16, "F": 64, "D1": 256, "D2": 256}, "correctness": true, "performance": true},
+        {"case_id": "boundary-1x3x5x7", "class": "boundary", "shape": {"B": 1, "F": 3, "D1": 5, "D2": 7}, "correctness": true, "performance": false},
+        {"case_id": "odd-2x7x9x11", "class": "odd", "shape": {"B": 2, "F": 7, "D1": 9, "D2": 11}, "correctness": true, "performance": false},
+        {"case_id": "neighbor-3x16x17x18", "class": "neighbor", "shape": {"B": 3, "F": 16, "D1": 17, "D2": 18}, "correctness": true, "performance": false}
+      ],
+      "numerics_profile": "fp16_norm_fp32_accum",
+      "resource_policy": {
+        "kind": "device_workspace",
+        "ownership": "thread_device_raii",
+        "workspace_bytes": 32896,
+        "initialization_phase": "correctness_or_warmup",
+        "timed_region_allocations": false,
+        "release_phase": "host_thread_exit",
+        "stream_binding": "cudaStreamLegacy",
+        "validation_protocol": {
+          "kind": "same_thread_reuse_dual_host_thread_release_v1",
+          "same_thread_calls": 5,
+          "host_threads": 2,
+          "calls_per_host_thread": 5,
+          "warmup_thread_waves": 4,
+          "measured_thread_waves_per_group": 8,
+          "measured_groups": 2,
+          "leak_allowance_bytes": 65536,
+          "seeds": [0, 42, 20260721],
+          "shape": {"B": 1, "F": 3, "D1": 5, "D2": 7},
+          "driver": "edge_drivers/040_resource_lifecycle_driver.cpp"
+        }
+      },
+      "reentrant_under_contract": true,
+      "requires_prewarm": true
+    },
+    {
+      "id": "047",
+      "name": "spatial_half2_sum",
+      "source": "047_sum_sm86.cu",
+      "capability_status": "legacy_research_only",
+      "supported_cases": [
+        {"case_id": "canonical", "class": "canonical", "shape": {"B": 16, "D1": 256, "D2": 256, "reduce_dim": 1}, "correctness": true, "performance": true}
+      ]
+    },
+    {
+      "id": "088",
+      "name": "pack8_mingpt_gelu",
+      "source": "088_mingpt_gelu_sm86.cu",
+      "capability_status": "legacy_research_only",
+      "supported_cases": [
+        {"case_id": "canonical", "class": "canonical", "shape": {"B": 2000, "dim": 2000}, "correctness": true, "performance": true}
+      ]
+    },
+    {
+      "id": "095",
+      "name": "warp_cross_entropy",
+      "source": "095_cross_entropy_sm86.cu",
+      "extra_correctness_drivers": [
+        "edge_drivers/095_cross_entropy_edge_driver.cpp",
+        "edge_drivers/095_resource_lifecycle_driver.cpp"
+      ],
+      "capability_status": "hardened",
+      "target_dtype": "int64",
+      "supported_cases": [
+        {"case_id": "canonical", "class": "canonical", "shape": {"B": 4096, "classes": 10}, "correctness": true, "performance": true},
+        {"case_id": "boundary-1x2", "class": "boundary", "shape": {"B": 1, "classes": 2}, "correctness": true, "performance": false},
+        {"case_id": "odd-17x7", "class": "odd", "shape": {"B": 17, "classes": 7}, "correctness": true, "performance": false},
+        {"case_id": "neighbor-65x9", "class": "neighbor", "shape": {"B": 65, "classes": 9}, "correctness": true, "performance": false},
+        {"case_id": "neighbor-257x10", "class": "neighbor", "shape": {"B": 257, "classes": 10}, "correctness": true, "performance": false}
+      ],
+      "numerics_profile": "fp16_cross_entropy_fp32_accum",
+      "resource_policy": {
+        "kind": "device_workspace",
+        "ownership": "thread_device_raii",
+        "workspace_bytes": 2048,
+        "initialization_phase": "correctness_or_warmup",
+        "timed_region_allocations": false,
+        "release_phase": "host_thread_exit",
+        "stream_binding": "cudaStreamLegacy",
+        "validation_protocol": {
+          "kind": "same_thread_reuse_dual_host_thread_release_v1",
+          "same_thread_calls": 5,
+          "host_threads": 2,
+          "calls_per_host_thread": 5,
+          "warmup_thread_waves": 4,
+          "measured_thread_waves_per_group": 32,
+          "measured_groups": 2,
+          "leak_allowance_bytes": 65536,
+          "seeds": [0, 42, 20260721],
+          "shape": {"B": 17, "classes": 7},
+          "driver": "edge_drivers/095_resource_lifecycle_driver.cpp"
+        }
+      },
+      "reentrant_under_contract": true,
+      "requires_prewarm": true
+    }
+  ]
+}

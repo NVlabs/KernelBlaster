@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "name": "pilot3",
+  "description": "Day 5 end-to-end pilot spanning memory, reduction, and normalization bottlenecks.",
+  "subset": "level1",
+  "precision": "fp16",
+  "defaults": {
+    "rollouts": 1,
+    "steps": 2
+  },
+  "tasks": [
+    {"number": 4, "id": "004", "name": "Matrix-vector multiplication", "category": "memory", "path": "data/kernelbench-cuda/level1/004_Matrix_vector_multiplication"},
+    {"number": 23, "id": "023", "name": "Softmax", "category": "normalization", "path": "data/kernelbench-cuda/level1/023_Softmax"},
+    {"number": 36, "id": "036", "name": "RMSNorm", "category": "normalization", "path": "data/kernelbench-cuda/level1/036_RMSNorm"}
+  ]
+}

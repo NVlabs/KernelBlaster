@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Batch queue for aggregating LLM requests from multiple trajectories/agents.
+用于聚合来自多个轨迹/代理的 LLM 请求的批处理队列。
 
-This module provides batching middleware that collects requests over a time window
-and batches them together for more efficient processing, especially for local models.
+该模块提供批处理中间件，用于收集某个时间窗口内的请求
+并将它们批处理在一起以实现更高效的处理，特别是对于本地模型。
 """
 import asyncio
 import time
@@ -35,7 +35,7 @@ __all__ = ["LLMBatchQueue", "get_batch_queue"]
 
 @dataclass
 class QueuedRequest:
-    """A single LLM request waiting to be batched."""
+    """等待批处理的单个 LLM 请求。"""
     messages: List[Dict]
     model: str
     n_tasks: int
@@ -49,10 +49,10 @@ class QueuedRequest:
 
 class LLMBatchQueue:
     """
-    Queue that batches LLM requests for local models.
-    
-    Collects requests over a time window and processes them in batches
-    for improved GPU utilization and reduced latency.
+    用于批量处理本地模型的 LLM 请求的队列。
+
+    收集一段时间窗口内的请求并批量处理它们
+    提高 GPU 利用率并减少延迟。
     """
     
     def __init__(
@@ -62,18 +62,23 @@ class LLMBatchQueue:
         enabled: bool = True,
     ):
         """
-        Initialize the batch queue.
-        
-        Parameters
+        初始化批处理队列。
+
+        参数
         ----------
-        window_ms : int, default 100
-            Maximum time to wait (in milliseconds) before processing a batch
-        max_batch_size : int, default 8
-            Maximum number of requests to include in a single batch
-        enabled : bool, default True
-            Whether batching is enabled (can be disabled via env var)
+        window_ms ：整数，默认100
+        处理批次之前等待的最长时间（以毫秒为单位）
+        max_batch_size ：整数，默认8
+        单个批次中包含的最大请求数
+        启用：布尔值，默认 True
+        是否启用批处理（可以通过环境变量禁用）
+
+        参数:
+            window_ms: 调用方提供的 `window_ms` 参数。
+            max_batch_size: 调用方提供的 `max_batch_size` 参数。
+            enabled: 调用方提供的 `enabled` 参数。
         """
-        self.window_ms = window_ms / 1000.0  # Convert to seconds
+        self.window_ms = window_ms / 1000.0  # 转换为秒
         self.max_batch_size = max_batch_size
         self.enabled = enabled and (os.getenv("LLM_BATCH_ENABLED", "true").lower() == "true")
         
@@ -100,40 +105,52 @@ class LLMBatchQueue:
         use_4bit: bool = True,
     ) -> LLMResponse:
         """
-        Submit a request to the batch queue.
-        
-        For local models, requests are batched together. For API models,
-        requests are passed through immediately (no batching).
-        
-        Parameters
+        向批处理队列提交请求。
+
+        对于本地模型，请求被批量处理在一起。对于 API 模型，
+        请求立即通过（无批处理）。
+
+        参数
         ----------
-        messages : List[Dict]
-            Chat messages in OpenAI format
-        model : str
-            Model name/identifier
-        n_tasks : int, default 1
-            Number of completions to generate
-        max_tokens : int, default 4096
-            Maximum tokens to generate
-        temperature : float, default 0.7
-            Sampling temperature
-        top_p : float, default 0.9
-            Nucleus sampling parameter
-        use_4bit : bool, default True
-            Whether to use 4-bit quantization (for local models)
-            
-        Returns
+        消息：列表[字典]
+        OpenAI 格式的聊天消息
+        型号：str
+        型号名称/标识符
+        n_tasks ：整数，默认1
+        生成的完成数
+        max_tokens ：整数，默认 4096
+        生成的最大代币数量
+        温度：浮动，默认0.7
+        取样温度
+        top_p ：浮动，默认0.9
+        细胞核采样参数
+        use_4bit : 布尔值，默认 True
+        是否使用4位量化（针对本地模型）
+
+        退货
         -------
-        LLMResponse
-            Response object with generations
+        LLM回应
+        具有世代的响应对象
+
+        参数:
+            messages: 按对话顺序排列的 LLM 消息。
+            model: 生成候选时使用的模型标识。
+            n_tasks: 调用方提供的 `n_tasks` 参数。
+            max_tokens: 调用方提供的 `max_tokens` 参数。
+            temperature: 调用方提供的 `temperature` 参数。
+            top_p: 调用方提供的 `top_p` 参数。
+            use_4bit: 调用方提供的 `use_4bit` 参数。
+
+        返回:
+            当前操作产生的结果；具体类型由返回注解和调用约定确定。
         """
-        # If batching is disabled or not a local model, process immediately
+        # 如果批处理被禁用或不是本地模型，请立即处理
         if not self.enabled or not is_local_model(model):
-            # For API models or when disabled, use direct call
+            # 对于 API 模型或禁用时，请使用直接调用
             from .query import generate_code
             return await generate_code(messages, n_tasks, model)
         
-        # Create future for async result
+        # 为异步结果创建 Future，并由批处理 Worker 在完成后设置结果。
         future = asyncio.Future()
         request = QueuedRequest(
             messages=deepcopy(messages),
@@ -150,25 +167,25 @@ class LLMBatchQueue:
         async with self.lock:
             self.queue.append(request)
             
-            # Process immediately if batch is full
+            # 批次已满立即处理
             if len(self.queue) >= self.max_batch_size:
                 if not self.processing:
                     asyncio.create_task(self._process_batch())
-            # Otherwise, schedule processing after window delay
+            # 否则，在窗口延迟后安排处理
             elif not self.processing and self._pending_timer is None:
                 self._pending_timer = asyncio.create_task(self._process_batch_after_delay())
         
-        # Wait for result
+        # 等待结果
         return await future
     
     async def _process_batch_after_delay(self):
-        """Process batch after window delay."""
+        """在窗口延迟后处理批次。"""
         await asyncio.sleep(self.window_ms)
         await self._process_batch()
     
     async def _process_batch(self):
-        """Process a batch of queued requests."""
-        # Extract batch from queue
+        """处理一批排队的请求。"""
+        # 从队列中提取批次
         async with self.lock:
             if self.processing or not self.queue:
                 if self._pending_timer:
@@ -178,43 +195,43 @@ class LLMBatchQueue:
             self.processing = True
             self._pending_timer = None
             
-            # Take up to max_batch_size requests
+            # 最多可处理 max_batch_size 请求
             batch = self.queue[:self.max_batch_size]
             self.queue = self.queue[self.max_batch_size:]
             
             batch_size = len(batch)
-            model = batch[0].model  # Assume same model for batch
+            model = batch[0].model  # 假设批次相同型号
         
         try:
             logger.info(f"Processing batch of {batch_size} requests for model {model}")
             
-            # Group requests by parameters (same model, temperature, top_p, etc.)
-            # For now, we'll process all together if they have compatible parameters
-            # In the future, we could group more intelligently
+            # 按参数对请求进行分组（相同型号、温度、top_p等）
+            # 目前，如果它们具有兼容的参数，我们将一起处理
+            # 未来我们可以更加智能地分组
             
-            # Extract prompts from batch
+            # 从批处理中提取提示
             prompts = [req.messages for req in batch]
             
-            # Group requests by compatible parameters
-            # For true batching, we need same model, temperature, top_p, max_tokens, use_4bit
-            # For now, we'll batch all together if they're the same model
-            # (could be made smarter to group by parameters)
+            # 按兼容参数对请求进行分组
+            # 对于真正的配料，我们需要相同的型号、温度、top_p、max_tokens、use_4bit
+            # 现在，如果它们是相同的型号，我们会将它们一起批处理
+            # （可以更智能地按参数分组）
             
             first_req = batch[0]
             
-            # Check if all requests have compatible parameters for true batching
+            # 检查所有请求是否具有兼容的参数以实现真正的批处理
             compatible = all(
                 req.model == first_req.model
                 and req.temperature == first_req.temperature
                 and req.top_p == first_req.top_p
                 and req.max_tokens == first_req.max_tokens
                 and req.use_4bit == first_req.use_4bit
-                and req.n_tasks == 1  # Only batch single-task requests for now
+                and req.n_tasks == 1  # 目前仅批量处理单任务请求
                 for req in batch
             )
             
             if compatible and len(batch) > 1:
-                # True batching: single forward pass for all prompts
+                # 真正的批处理：所有提示的单前向传递
                 prompts = [req.messages for req in batch]
                 responses = await generate_code_local_batch(
                     prompts,
@@ -225,8 +242,8 @@ class LLMBatchQueue:
                     use_4bit=first_req.use_4bit,
                 )
             else:
-                # Fallback: process individually but in parallel
-                # (for requests with different parameters or n_tasks > 1)
+                # Fallback：单独但并行处理
+                # （对于具有不同参数或 n_tasks > 1 的请求）
                 tasks = []
                 for req in batch:
                     task = asyncio.create_task(
@@ -242,10 +259,10 @@ class LLMBatchQueue:
                     )
                     tasks.append(task)
                 
-                # Wait for all to complete
+                # 等待全部完成
                 responses = await asyncio.gather(*tasks)
             
-            # Route responses back to futures
+            # 将响应路由回 future
             for req, response in zip(batch, responses):
                 if not req.future.done():
                     req.future.set_result(response)
@@ -257,14 +274,14 @@ class LLMBatchQueue:
             
         except Exception as e:
             logger.error(f"Error processing batch: {e}")
-            # Route errors back to futures
+            # 将错误路由回 future
             for req in batch:
                 if not req.future.done():
                     req.future.set_exception(e)
         finally:
             async with self.lock:
                 self.processing = False
-                # Process remaining queue if there are more requests
+                # 如果有更多请求，则处理剩余队列
                 if self.queue:
                     if len(self.queue) >= self.max_batch_size:
                         asyncio.create_task(self._process_batch())
@@ -274,18 +291,23 @@ class LLMBatchQueue:
                         )
     
     async def flush(self):
-        """Force process all pending requests immediately."""
+        """立即强制处理所有待处理的请求。"""
         async with self.lock:
             if self.queue and not self.processing:
                 await self._process_batch()
 
 
-# Global queue instance
+# 全局队列实例
 _global_batch_queue: Optional[LLMBatchQueue] = None
 
 
 def get_batch_queue() -> LLMBatchQueue:
-    """Get or create the global batch queue instance."""
+    """
+    获取或创建全局批处理队列实例。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+    """
     global _global_batch_queue
     
     if _global_batch_queue is None:

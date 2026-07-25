@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "name": "core10",
+  "description": "Ten Level 1 kernels spanning memory, elementwise, normalization, reduction, and loss workloads.",
+  "subset": "level1",
+  "precision": "fp16",
+  "defaults": {
+    "rollouts": 3,
+    "steps": 3
+  },
+  "tasks": [
+    {"number": 4, "id": "004", "name": "Matrix-vector multiplication", "category": "memory", "path": "data/kernelbench-cuda/level1/004_Matrix_vector_multiplication"},
+    {"number": 7, "id": "007", "name": "Small-K matrix multiplication", "category": "matmul", "path": "data/kernelbench-cuda/level1/007_Matmul_with_small_K_dimension"},
+    {"number": 19, "id": "019", "name": "ReLU", "category": "elementwise", "path": "data/kernelbench-cuda/level1/019_ReLU"},
+    {"number": 23, "id": "023", "name": "Softmax", "category": "normalization", "path": "data/kernelbench-cuda/level1/023_Softmax"},
+    {"number": 26, "id": "026", "name": "GELU", "category": "elementwise", "path": "data/kernelbench-cuda/level1/026_GELU"},
+    {"number": 36, "id": "036", "name": "RMSNorm", "category": "normalization", "path": "data/kernelbench-cuda/level1/036_RMSNorm"},
+    {"number": 40, "id": "040", "name": "LayerNorm", "category": "normalization", "path": "data/kernelbench-cuda/level1/040_LayerNorm"},
+    {"number": 47, "id": "047", "name": "Sum reduction", "category": "reduction", "path": "data/kernelbench-cuda/level1/047_Sum_reduction_over_a_dimension"},
+    {"number": 88, "id": "088", "name": "MinGPT GELU", "category": "elementwise", "path": "data/kernelbench-cuda/level1/088_MinGPTNewGelu"},
+    {"number": 95, "id": "095", "name": "Cross entropy loss", "category": "loss", "path": "data/kernelbench-cuda/level1/095_CrossEntropyLoss"}
+  ]
+}

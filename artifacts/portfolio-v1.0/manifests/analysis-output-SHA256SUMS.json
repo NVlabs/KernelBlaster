@@ -1,0 +1,11 @@
+{
+  "analysis_summary.json": "b5c5718e4ebff3d4777e6d80965682f08a6abf5e12b953e43132646c136f3dd5",
+  "api_usage.csv": "2c362637837204bae3f9c09a766395316604b2d73985a90511af0952fcb44a88",
+  "core10_results.csv": "738990db27d735d2a0f1c1a314b24bc3e462b5389d81ccd3823ed5e9332e53c0",
+  "core10_speedup.svg": "01f632ca6c5c8f49f553230a5d25ecca1ce10fa20af998018d3710e9c29fd523",
+  "deep_case_results.csv": "1b57460c7b35486b918f28d8de414eecfe6a5e1bb98c16a43fd78530d0be586e",
+  "failure_classification.csv": "c05c15aa6eb38985377b7bf85a42f50411effd49d6243a4c12a0d58df23ad0e0",
+  "raw_artifact_sha256.csv": "c3956a90c24ad224ad2690edb23a49afc78963dd3ee3ba1b62f921a73edc2739",
+  "validation-report.zh-CN.md": "87b20ef20f5d833a5e781082fe45b81db622749280aeb7a68409c8e71766f1e1",
+  "validation-summary.en.md": "4ec1b9062fbf909725a90b7218582d4ac530d7fba0c60035b2b617822d632276"
+}

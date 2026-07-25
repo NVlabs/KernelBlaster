@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KernelBlaster Measurement v3",
+  "type": "object",
+  "required": ["schema_version", "value", "unit", "source", "samples", "protocol_id", "hardware_fingerprint"],
+  "properties": {
+    "schema_version": {"const": "3.0"},
+    "value": {"type": "number", "exclusiveMinimum": 0},
+    "unit": {"enum": ["cycles", "us"]},
+    "source": {"enum": ["ncu", "cuda_events", "legacy_inferred"]},
+    "samples": {"type": "array", "items": {"type": "number"}},
+    "protocol_id": {"type": "string", "minLength": 1},
+    "hardware_fingerprint": {"type": "string", "minLength": 1},
+    "legacy_inferred_unit": {"type": "boolean"}
+  },
+  "additionalProperties": false
+}

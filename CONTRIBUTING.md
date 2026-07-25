@@ -85,6 +85,27 @@ git commit -s -m "Description of your change"
 - Add or update tests where applicable.
 - Make sure existing tests pass.
 
+## README Language Policy
+
+- Keep the root `README.md` in English and `README.zh-CN.md` in Simplified Chinese.
+- Any directory-level `README.md` added in this fork should have a matching `README.zh-CN.md` in the same directory.
+- When README content changes, update both language versions in the same pull request. Commands, paths, validation status, attribution, and performance figures must remain consistent.
+
+## Portfolio Documentation Freshness
+
+- Treat `portfolio/status.json` and the checked-in artifact JSON as the source of truth for current validation state and measured values.
+- Any change to benchmark runners, candidate kernels, Portfolio suites, result analysis, or `artifacts/portfolio-v1.0/` must update the status manifest or README/docs in the same pull request.
+- Regenerate and verify marker-delimited status blocks before committing:
+
+  ```bash
+  python scripts/sync_portfolio_docs.py --write
+  python scripts/sync_portfolio_docs.py --check
+  ```
+
+- When artifact files change, regenerate `artifacts/portfolio-v1.0/SHA256SUMS.json` and verify every entry.
+- Do not replace a real `blocked` or `NOT RUN` state with a success claim. Explain the blocker and link the evidence instead.
+- The `Portfolio documentation sync` GitHub workflow enforces generated-block, link, evidence-hash, and changed-file policy on pull requests.
+
 ## Code Style
 
 - **Python**: Follow [PEP 8](https://peps.python.org/pep-0008/) conventions.
