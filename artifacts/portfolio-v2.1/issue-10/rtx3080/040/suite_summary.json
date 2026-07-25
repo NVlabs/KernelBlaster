@@ -1,0 +1,147 @@
+{
+  "blocked_tasks": 0,
+  "complete": true,
+  "completed_tasks": 1,
+  "created_at": "2026-07-22T15:37:10.740173+00:00",
+  "failed_tasks": 0,
+  "inconclusive_tasks": 0,
+  "manifest": "portfolio/case_studies/core10/candidates.json",
+  "no_improvement_tasks": 0,
+  "protocol": {
+    "backward": false,
+    "cooldown_seconds": 60.0,
+    "correctness_only": false,
+    "dtype": "fp16",
+    "gpu": "NVIDIA GeForce RTX 3080",
+    "graph_capture": false,
+    "layout": "contiguous_row_major",
+    "max_session_spread_percent": 5.0,
+    "ncu": false,
+    "phase": "confirmation",
+    "portability_replay_from": null,
+    "repetitions": 100,
+    "sessions": 5,
+    "shape": "canonical",
+    "sm": "sm_86",
+    "stream_count": 1,
+    "stream_mode": "legacy_default",
+    "target_dtype": "int64",
+    "warmup": 20
+  },
+  "results": [
+    {
+      "all_sessions_not_slower": true,
+      "baseline_median_us": 16088.06419375,
+      "candidate": "multiblock_layernorm",
+      "candidate_median_us": 712.704002857,
+      "capability": {
+        "reason_code": null,
+        "request": {
+          "arch": "sm_86",
+          "backward": false,
+          "compile_arch": "sm_86",
+          "dtype": "fp16",
+          "graph_capture": false,
+          "layout": "contiguous_row_major",
+          "portability_replay": false,
+          "shape": {
+            "B": 16,
+            "D1": 256,
+            "D2": 256,
+            "F": 64
+          },
+          "stream_count": 1,
+          "stream_mode": "legacy_default",
+          "target_dtype": "int64"
+        },
+        "schema_version": "2.0",
+        "supported": true,
+        "supported_values": {
+          "case_ids": [
+            "canonical",
+            "boundary-1x3x5x7",
+            "odd-2x7x9x11",
+            "neighbor-3x16x17x18"
+          ],
+          "directions": [
+            "inference_forward"
+          ],
+          "gpu_architectures": [
+            "sm_86"
+          ],
+          "graph_capture": false,
+          "input_dtypes": [
+            "fp16"
+          ],
+          "layouts": [
+            "contiguous_row_major"
+          ],
+          "max_streams": 1,
+          "shapes": [
+            {
+              "B": 16,
+              "D1": 256,
+              "D2": 256,
+              "F": 64
+            },
+            {
+              "B": 1,
+              "D1": 5,
+              "D2": 7,
+              "F": 3
+            },
+            {
+              "B": 2,
+              "D1": 9,
+              "D2": 11,
+              "F": 7
+            },
+            {
+              "B": 3,
+              "D1": 17,
+              "D2": 18,
+              "F": 16
+            }
+          ],
+          "stream_modes": [
+            "legacy_default"
+          ]
+        },
+        "task_id": "040"
+      },
+      "correct": true,
+      "kernel": "LayerNorm",
+      "log": "launcher-040.log",
+      "performance_claim_allowed": true,
+      "portability_replay": null,
+      "requested_case": {
+        "case_id": "canonical",
+        "class": "canonical",
+        "correctness": true,
+        "performance": true,
+        "shape": {
+          "B": 16,
+          "D1": 256,
+          "D2": 256,
+          "F": 64
+        }
+      },
+      "returncode": 0,
+      "session_speedups": [
+        22.57327604343199,
+        22.50215205491563,
+        22.733093752250287,
+        22.6935252728839,
+        22.556353079865396
+      ],
+      "source": "040_layernorm_sm86.cu",
+      "speedup": 22.57327604343199,
+      "stable": true,
+      "status": "completed",
+      "summary": "040/summary.json",
+      "task_id": "040"
+    }
+  ],
+  "schema_version": "2.0",
+  "suite": "core10"
+}

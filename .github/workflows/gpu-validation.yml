@@ -1,0 +1,81 @@
+name: GPU validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: Core 10 task id
+        required: true
+        default: "036"
+      run_ncu:
+        description: Run the optional NCU attribution job
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  compile-correctness:
+    name: GPU compile and correctness
+    runs-on: [self-hosted, linux, x64, gpu]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate runtime
+        run: python scripts/check_runtime_versions.py --require-gpu
+      - name: Compile and run correctness gate
+        run: >-
+          python scripts/benchmark_candidates.py
+          --task-id "${{ inputs.task_id }}"
+          --correctness-only
+          --sessions 1 --warmup 1 --repetitions 1
+          --cooldown-seconds 0
+          --output-dir "out/gpu-ci/${{ github.run_id }}/correctness"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gpu-correctness-${{ inputs.task_id }}
+          path: out/gpu-ci/${{ github.run_id }}/correctness
+
+  cuda-events:
+    name: CUDA Events confirmation
+    needs: compile-correctness
+    runs-on: [self-hosted, linux, x64, gpu]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run five-session confirmation
+        run: >-
+          python scripts/benchmark_candidates.py
+          --task-id "${{ inputs.task_id }}"
+          --phase confirmation
+          --output-dir "out/gpu-ci/${{ github.run_id }}/events"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gpu-events-${{ inputs.task_id }}
+          path: out/gpu-ci/${{ github.run_id }}/events
+
+  ncu-attribution:
+    name: Optional NCU attribution
+    if: inputs.run_ncu
+    needs: cuda-events
+    runs-on: [self-hosted, linux, x64, gpu, ncu]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run NCU permission probe and attribution
+        run: >-
+          python scripts/benchmark_candidates.py
+          --task-id "${{ inputs.task_id }}"
+          --correctness-only --sessions 1 --ncu
+          --cooldown-seconds 0
+          --output-dir "out/gpu-ci/${{ github.run_id }}/ncu"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gpu-ncu-${{ inputs.task_id }}
+          path: out/gpu-ci/${{ github.run_id }}/ncu

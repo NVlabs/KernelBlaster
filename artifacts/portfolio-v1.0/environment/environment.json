@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "collected_at": "2026-07-19T06:43:44Z",
+  "host": {
+    "windows_build": "10.0.26200.8875",
+    "wsl": "2.6.2",
+    "distribution": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.6.87.2-microsoft-standard-WSL2",
+    "python": "3.12.3",
+    "git_base_commit": "ab05a4c903fb98a6db733c2a584b425d39a2caeb"
+  },
+  "gpu": {
+    "name": "NVIDIA GeForce RTX 3080",
+    "memory_mib": 10240,
+    "compute_capability": "8.6",
+    "target": "sm_86",
+    "windows_driver": "591.86"
+  },
+  "container": {
+    "image": "kernelblaster:validation-25.01",
+    "digest": "sha256:5a0cc1c81da988e417de729b7bf5c630c5220e78074d184ab86130b9e51f01d1",
+    "base": "nvcr.io/nvidia/pytorch:25.01-py3",
+    "base_digest": "sha256:96990c82825613c3bdeebb66675c7c91b0123f64a5895623316dc5b824e0d7a9",
+    "cuda_toolkit": "12.8.61",
+    "nsight_compute": "2025.1.0.0",
+    "pytorch": "2.6.0a0+ecf3bae40a.nv25.01",
+    "docker_desktop": "4.54.0",
+    "docker_engine": "29.1.2"
+  },
+  "validation": {
+    "gpu_container": "passed",
+    "sm_86_mapping": "passed",
+    "cpu_pytest": "48 passed",
+    "cuda_compile": "passed",
+    "official_driver_correctness": "passed",
+    "rmsnorm_edge_correctness": "passed",
+    "compile_server_health": "passed",
+    "gpu_server_health": "passed",
+    "orphan_container_check": "passed",
+    "orphan_compute_process_check": "passed",
+    "ncu_binary": "available",
+    "ncu_performance_counters": "blocked: ERR_NVGPUCTRPERM",
+    "ncu_counter_setting": "RmProfilingAdminOnly=0; pending Windows driver reload",
+    "live_api_smoke": "blocked: HTTP 401 invalid_api_key; no retry"
+  },
+  "notes": [
+    "The WSL host intentionally has no local nvcc or ncu; all CUDA work used the pinned NGC image.",
+    "No API key, response body, GPU UUID, or personal absolute path is included in this curated manifest.",
+    "Raw manifests were collected from a dirty validation worktree before the three publication commits; per-source SHA256 values bind measured CUDA sources to the committed best kernel."
+  ]
+}

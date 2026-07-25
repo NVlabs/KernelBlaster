@@ -12,6 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""解析 Nsight Compute 输出，并把性能指标关联回 CUDA 源码位置。"""
+
 import pandas as pd
 from pathlib import Path
 from io import StringIO
@@ -39,10 +42,19 @@ UTILIZATION_METRICS = [
 def annotate_source(
     cuda_path: Path, source_dfs: list[pd.DataFrame], details_dfs: list[pd.DataFrame]
 ):
-    """Modified code based on chatwithncu.
-    Annotate lines of code that take long cycles.
-    The profiling report with selected metrics and suggestions is at end.
-    Combine the inline annotation and profiling report of several kernels.
+    """
+    基于chatwithncu修改的代码。
+    对需要较长周期的代码行进行注释。
+    包含选定指标和建议的分析报告已结束。
+    结合多个内核的内联注释和分析报告。
+
+    参数:
+        cuda_path: 调用方提供的 `cuda_path` 参数。
+        source_dfs: 调用方提供的 `source_dfs` 参数。
+        details_dfs: 调用方提供的 `details_dfs` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
     """
     assert cuda_path.exists(), f"File not found: {cuda_path}"
     assert len(source_dfs) == len(
@@ -51,24 +63,24 @@ def annotate_source(
     num_kernels = len(source_dfs)
 
     line_comment = {}
-    # Annotate for multiple kernels
+    # 为多个内核进行注释
     summary_report = []
-    # Get annotation and profiling report
+    # 获取注释和分析报告
     for kernel_idx in range(num_kernels):
         df_source = source_dfs[kernel_idx]
         df_details = details_dfs[kernel_idx]
         
-        # Handle empty source dataframes (when source profiling is skipped)
+        # 处理空源数据帧（当跳过源分析时）
         if df_source.empty or "CUDA" not in df_source.columns:
-            # Skip source-level annotations, only generate summary from details
+            # 跳过源代码级注释，仅从细节生成摘要
             df_source_cuda = pd.DataFrame()
             df_source_sass = pd.DataFrame()
         else:
-            # analyze source counters file
+            # 分析源计数器文件
             df_source_cuda = df_source.dropna(subset=["CUDA"])
             df_source_sass = df_source.dropna(subset=["SASS"])
 
-        # Find hot spot
+        # 寻找热点
         hotspot = 0
         total_stalls = 0
         if not df_source.empty and "Warp Stall Sampling (All Samples)" in df_source.columns:
@@ -87,7 +99,7 @@ def annotate_source(
                             hotspot = int(row["Line No"])
                             break
 
-        # Find divergent branches
+        # 查找不同的分支
         divergent_branches = []
         column = "Divergent Branches"
         if not df_source_cuda.empty and column in df_source_cuda.columns:
@@ -98,7 +110,7 @@ def annotate_source(
                 if not pd.isna(row[column]) and row[column] > 0:
                     divergent_branches.append(int(row["Line No"]))
 
-        # Find gmem accesses
+        # 查找 gmem 访问
         gmem_accesses = []
         column = "L2 Theoretical Sectors Global"
         if not df_source_cuda.empty and column in df_source_cuda.columns:
@@ -109,7 +121,7 @@ def annotate_source(
                 if not pd.isna(row[column]) and row[column] > 0:
                     gmem_accesses.append(int(row["Line No"]))
 
-        # Find uncoalesced memory accesses
+        # 查找未合并的内存访问
         uncoalesced_accesses = []
         column = "L2 Theoretical Sectors Global Excessive"
         if not df_source_cuda.empty and column in df_source_cuda.columns:
@@ -120,7 +132,7 @@ def annotate_source(
                 if not pd.isna(row[column]) and row[column] > 0:
                     uncoalesced_accesses.append(int(row["Line No"]))
 
-        # Find smem accesses
+        # 查找 smem 访问
         smem_accesses = []
         column = "L1 Wavefronts Shared"
         if not df_source_cuda.empty and column in df_source_cuda.columns:
@@ -131,7 +143,7 @@ def annotate_source(
                 if not pd.isna(row[column]) and row[column] > 0:
                     smem_accesses.append(int(row["Line No"]))
 
-        # Find smem bank conflicts
+        # 查找中小企业银行冲突
         conflicts = []
         column = "L1 Wavefronts Shared Excessive"
         if not df_source_cuda.empty and column in df_source_cuda.columns:
@@ -142,7 +154,7 @@ def annotate_source(
                 if not pd.isna(row[column]) and row[column] > 0:
                     conflicts.append(int(row["Line No"]))
 
-        # Find the total stalls
+        # 查找总摊位
         stall_columns = []
         if not df_source_cuda.empty:
             stall_columns = [
@@ -155,7 +167,7 @@ def annotate_source(
         threshold = 5
 
         cuda_file_contents = cuda_path.read_text()
-        # Start counting lines from 1 to skip the CSV header
+        # 从 1 开始计数行以跳过 CSV 标头
         for line_number, line in enumerate(cuda_file_contents.splitlines(), 1):
             comment = ""
             if line_number == hotspot:
@@ -173,8 +185,8 @@ def annotate_source(
                             stall_value = filtered_df_source.iloc[
                                 0, df_source.columns.get_loc(col)
                             ]
-                            # NCU can return missing/NaN stall sampling data (or total stalls = 0)
-                            # for some kernels / configs. Avoid crashing annotation.
+                            # NCU 可以返回丢失/NaN 失速采样数据（或总失速 = 0）
+                            # 对于某些内核/配置。避免注释崩溃。
                             if total_stalls is None or pd.isna(total_stalls) or float(total_stalls) <= 0:
                                 stall_percent = 0
                             else:
@@ -201,7 +213,7 @@ def annotate_source(
             if comment != "":
                 line_comment[line_number] = " // Profile information:" + comment + "\n"
 
-        # analyze details page
+        # 分析详情页面
         metric_list = [
             "Elapsed Cycles",
             "Memory Throughput",
@@ -228,16 +240,16 @@ def annotate_source(
         ]
         utilization_dict = {}
 
-        # Handle empty details dataframe
+        # 处理空的详细信息数据框
         if df_details.empty:
-            # Only include "no details available" summary if we have source info to indicate the kernel exists
-            # If both source and details are empty, skip the summary entirely
+            # 如果我们有源信息表明内核存在，则仅包含“无可用详细信息”摘要
+            # 如果来源和详细信息均为空，则完全跳过摘要
             if not df_source.empty or kernel_idx < len(source_dfs):
                 report = f"###PROFILE SUMMARY (no details available):\n\n"
                 report += "No profiling details available (source profiling was skipped).\n"
                 report += "This may indicate the kernel was not executed or kernel name matching failed.\n"
                 summary_report.append(report)
-            # Otherwise, skip adding empty summary to avoid clutter
+            # 否则，请跳过添加空摘要以避免混乱
             continue
 
         kernel_name = df_details.iloc[0]["Kernel Name"].split("(")[0] if "Kernel Name" in df_details.columns and len(df_details) > 0 else "Unknown"
@@ -307,10 +319,10 @@ def annotate_source(
                 )
         summary_report.append(report)
 
-    # Write to file
+    # 写入文件
     text = ""
     with open(cuda_path, "r") as file:
-        for line_number, line in enumerate(file, 1):  # Start counting lines from 1
+        for line_number, line in enumerate(file, 1):  # 从 1 开始计数行
             if line_number in line_comment:
                 text += line.rstrip() + line_comment[line_number]
             else:
@@ -329,14 +341,26 @@ def annotate_source(
 def parse_csv_from_log(
     log: str, marker_string: str, header_replacement: str = ""
 ) -> pd.DataFrame:
-    """From chatwithncu.
-    Extract the csv content from the NCU log and return it.
+    """
+    来自chatwithncu。
+    从 NCU 日志中提取 csv 内容并将其返回。
 
-    This removes lines like:
-    ==PROF== Connected to process 2223422 (/tmp/kernelagent/compile_env/build/main)
-    passed
-    ==PROF== Disconnected from process 2223422
-    "File Path","/tmp/kernelagent/compile_env/cuda_model.cuh"
+    这会删除以下行：
+    ==PROF== 连接到进程 2223422 (/tmp/kernelagent/compile_env/build/main)
+    通过了
+    ==PROF== 与进程 2223422 断开连接
+    “文件路径”，“/tmp/kernelagent/compile_env/cuda_model.cuh”
+
+    参数:
+        log: 调用方提供的 `log` 参数。
+        marker_string: 调用方提供的 `marker_string` 参数。
+        header_replacement: 调用方提供的 `header_replacement` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+    异常:
+        ValueError: 输入、外部调用或状态不满足执行要求时抛出。
     """
     csv_start_index = log.find(marker_string)
     if csv_start_index == -1:
@@ -345,10 +369,10 @@ def parse_csv_from_log(
     if header_replacement:
         log = log.replace(marker_string, header_replacement)
 
-    # validate the CSV content
+    # 验证 CSV 内容
     csv = log[csv_start_index:]
 
-    # Extract only the CSV content from the cuda file. Subsequent CSVs report reports on atomic methods located in the cuda library like __ldg, __shfl_down_sync, etc.
+    # 仅从 cuda 文件中提取 CSV 内容。随后的 CSV 报告位于 cuda 库中的原子方法，如 __ldg、__shfl_down_sync 等。
     if '"File Path"' in csv:
         csv = csv[: csv.find('"File Path"')]
 
@@ -359,8 +383,8 @@ def parse_csv_from_log(
         line_df = pd.read_csv(StringIO(line))
         num_entries = len(line_df.columns)
         if num_entries > num_columns:
-            # num_entries may be smaller than num_columns if some columns are not applicable
-            # for a particular metric.
+            # 如果某些列不适用，num_entries 可能小于 num_columns
+            # 对于特定的指标。
             raise ValueError(
                 f"Number of entries in line {i} ({num_entries}) is larger than the number of columns ({num_columns}). Full Log:\n{csv}"
             )
@@ -368,16 +392,30 @@ def parse_csv_from_log(
 
 
 def format_ncu_details_as_csv(ncu_output: str) -> pd.DataFrame:
-    """From chatwithncu.
-    Remove the header of ncu generated details csv content and return the cleaned string.
+    """
+    来自chatwithncu。
+    删除 ncu 生成的详细信息 csv 内容的标头并返回清理后的字符串。
+
+    参数:
+        ncu_output: 调用方提供的 `ncu_output` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
     """
     marker_string = '"ID","Process ID","Process Name","Host Name"'
     return parse_csv_from_log(ncu_output, marker_string)
 
 
 def format_ncu_source_as_csv(ncu_output: str) -> pd.DataFrame:
-    """From chatwithncu.
-    Remove the header of ncu generated source csv content and return the cleaned string.
+    """
+    来自chatwithncu。
+    删除 ncu 生成的源 csv 内容的标头并返回清理后的字符串。
+
+    参数:
+        ncu_output: 调用方提供的 `ncu_output` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
     """
     marker_string = '"Line No","Source","Address","Source"'
     header_replacement = '"Line No","CUDA","Address","SASS"'

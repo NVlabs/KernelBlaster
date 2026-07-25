@@ -12,12 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""从 CUDA 源码和 NCU 日志中解析 Kernel 名称、启动信息与周期指标。"""
+
 from pathlib import Path
 import re
 
 from ...config import GPUType
 
-# allows for monkeypatching commands during testing
+# 允许在测试期间使用猴子补丁命令
 from . import commands as commands
 
 from ...config import GPUType
@@ -34,7 +37,21 @@ __all__ = [
 async def find_kernel_names_ncu(
     executable: Path, source_path: Path, gpu: GPUType, timeout: int
 ) -> list[str]:
-    """Find the kernel names by running NCU on a given executable and comparing it to the source code."""
+    """
+    通过在给定的可执行文件上运行 NCU 并将其与源代码进行比较来查找内核名称。
+
+    参数:
+        executable: 调用方提供的 `executable` 参数。
+        source_path: 调用方提供的 `source_path` 参数。
+        gpu: 执行或分析任务使用的 GPU 配置。
+        timeout: 允许操作等待的最长秒数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+    异常:
+        RuntimeError: 输入、外部调用或状态不满足执行要求时抛出。
+    """
 
     INVALID_KERNEL_NAME = "invalid_magic_kernel_name_here"
 
@@ -43,17 +60,17 @@ async def find_kernel_names_ncu(
     if not kernels_in_source:
         raise RuntimeError(f"No kernels found in the source code:\n{source_path}")
 
-    # Run ncu on the executable
-    # Should print a list of available kernels in the log like:
-    # ==PROF== Connected to process 2138337 (/tmp/kernelagent/compile_env/build/main)
-    # ==PROF== Disconnected from process 2138337
-    # ==WARNING== No kernels were profiled.
-    # Available Kernels:
-    # 1. distribution_elementwise_grid_stride_kernel
-    # 2. kernel
-    # 3. matmul_fp16_kernel_8x8
-    # 4. reduce_kernel
-    # 5. vectorized_elementwise_kernel
+    # 在可执行文件上运行 ncu
+    # 应该在日志中打印可用内核的列表，如下所示：
+    # ==PROF== 连接到进程 2138337 (/tmp/kernelagent/compile_env/build/main)
+    # ==PROF== 与进程 2138337 断开连接
+    # ==警告== 没有分析内核。
+    # 可用内核：
+    # Kernel 名称示例 1：distribution_elementwise_grid_stride_kernel
+    # 2. 内核
+    # Kernel 名称示例 3：matmul_fp16_kernel_8x8
+    # Kernel 名称示例 4：reduce_kernel
+    # Kernel 名称示例 5：vectorized_elementwise_kernel
     stdout, stderr = await commands.run_gpu_executable(
         executable,
         gpu,
@@ -62,7 +79,7 @@ async def find_kernel_names_ncu(
         prefix_command=f"NVIDIA_TF32_OVERRIDE=0 ncu -k {INVALID_KERNEL_NAME}",
     )
 
-    # Parse the stdout to get the kernel names
+    # 解析标准输出以获取内核名称
     kernel_section = stdout.split("Available Kernels:")[1]
     ncu_kernel_names = re.findall(r"\s*\d+\.\s*(\w+)", kernel_section)
     if not ncu_kernel_names:
@@ -70,10 +87,10 @@ async def find_kernel_names_ncu(
             f"Failed to find NCU kernel names in:\n stdout: {stdout}\n stderr: {stderr}"
         )
 
-    # find the intersection of the kernel names
+    # 找到内核名称的交集
     kernel_names = list(set(ncu_kernel_names) & set(kernels_in_source))
 
-    # Check if the kernel names are in the source code
+    # 检查内核名称是否在源代码中
     if not kernel_names:
         raise RuntimeError(
             f"Failed to find kernels running in both the executable and the source code:\n Source code kernels: {kernels_in_source}\n NCU kernels: {ncu_kernel_names}"
@@ -83,24 +100,34 @@ async def find_kernel_names_ncu(
 
 
 def find_kernel_names(filename: Path) -> str:
-    """Find the kernel names from a given cuda file.
+    """
+    从给定的 cuda 文件中查找内核名称。
 
-    Args:
-        filename: The filename of the kernel code.
+    参数：
+    filename：内核代码的文件名。
 
-    Returns:
-        The kernel names.
+    返回：
+    内核名称。
+
+    参数:
+        filename: 调用方提供的 `filename` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+    异常:
+        RuntimeError: 输入、外部调用或状态不满足执行要求时抛出。
     """
     kernel_code = filename.read_text()
-    # kernel may also be launched from a cuda function, so
-    # try parsing the kernel name from the kernel declaration
+    # 内核也可以从 cuda 函数启动，所以
+    # 尝试从内核声明中解析内核名称
     kernel_names_launches = re.findall(r"__global__ void (\S+)\(", kernel_code)
     kernel_names_decls = re.findall(r"(\w+)(?:<[^>]*>)?\s*<<<", kernel_code)
 
     kernel_names = list(set(kernel_names_launches) | set(kernel_names_decls))
 
-    # filter out names with __launch_bounds__ at the prefix because
-    # these are launch definitions not names
+    # 过滤掉前缀为 __launch_bounds__ 的名称，因为
+    # 这些是启动定义而不是名称
     kernel_names = list(
         filter(lambda x: not x.startswith("__launch_bounds__"), kernel_names)
     )
@@ -113,13 +140,23 @@ def find_kernel_names(filename: Path) -> str:
 
 
 def find_kernel_name(filename: Path) -> str:
-    """Find the only kernel name from a given cuda file.
+    """
+    从给定的 cuda 文件中查找唯一的内核名称。
 
-    Args:
-        filename: The filename of the kernel code.
+    参数：
+    filename：内核代码的文件名。
 
-    Returns:
-        The only kernel name.
+    返回：
+    唯一的内核名称。
+
+    参数:
+        filename: 调用方提供的 `filename` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+    异常:
+        RuntimeError: 输入、外部调用或状态不满足执行要求时抛出。
     """
     kernel_names = find_kernel_names(filename)
     if len(kernel_names) > 1:
@@ -130,24 +167,34 @@ def find_kernel_name(filename: Path) -> str:
 
 
 def get_elapsed_cycles_ncu_log(ncu_log: str) -> int:
-    """Get the elapsed cycles from a given ncu log.
-    
-    Parses the "Elapsed Cycles" metric from the "GPU Speed Of Light Throughput" section.
-    Supports both table format and CSV format.
-
-    Args:
-        ncu_log: The ncu log.
-
-    Returns:
-        The elapsed cycles.
     """
-    # Try multiple patterns to match different NCU output formats
+    从给定的 ncu 日志中获取经过的周期。
+
+    解析“GPU 光吞吐量速度”部分中的“已用周期”指标。
+    支持表格格式和CSV格式。
+
+    参数：
+    ncu_log：ncu 日志。
+
+    返回：
+    已过去的周期。
+
+    参数:
+        ncu_log: 调用方提供的 `ncu_log` 参数。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+    异常:
+        RuntimeError: 输入、外部调用或状态不满足执行要求时抛出。
+    """
+    # 尝试多种模式来匹配不同的 NCU 输出格式
     patterns = [
-        # Table format: "Elapsed Cycles                cycle        12675"
+        # 表格式：“Elapsed Cycles 周期 12675”
         r"Elapsed Cycles\s+\w+\s+(\d[\d,]*)",
-        # CSV format or other formats: "Elapsed Cycles,cycle,12675" or "Elapsed Cycles: 12675"
+        # CSV 格式或其他格式：“Elapsed Cycles,cycle,12675”或“Elapsed Cycles: 12675”
         r"Elapsed Cycles[,\s:]+(?:cycle[,\s]+)?(\d[\d,]*)",
-        # Fallback: any format with "Elapsed Cycles" followed by digits
+        # 后备：任何带有“已用周期”后跟数字的格式
         r"Elapsed Cycles.*?(\d[\d,]*)",
     ]
     
@@ -163,13 +210,23 @@ def get_elapsed_cycles_ncu_log(ncu_log: str) -> int:
 
 
 def find_kernel_launch_header(code: str) -> str:
-    """Find the kernel launch header in a given code.
+    """
+    在给定代码中查找内核启动标头。
 
-    Args:
-        code: The code.
+    参数：
+    代码：代码。
 
-    Returns:
-        The kernel launch header.
+    返回：
+    内核启动标头。
+
+    参数:
+        code: 待处理的源码文本。
+
+    返回:
+        当前操作产生的结果；具体类型由返回注解和调用约定确定。
+
+    异常:
+        RuntimeError: 输入、外部调用或状态不满足执行要求时抛出。
     """
     launch_headers = re.findall(
         r"(void launch_gpu_implementation\(.*?\);)", code, flags=re.DOTALL

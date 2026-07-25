@@ -12,6 +12,11 @@ build/
 venv/
 env/
 
+# Local credentials
+.env
+.env.*
+!.env.example
+
 # IDE
 .vscode/
 .idea/
@@ -24,3 +29,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Runtime outputs
+out/

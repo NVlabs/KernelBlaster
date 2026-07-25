@@ -123,6 +123,7 @@ case "${1:-api}" in
         ;;
     "gpu")
         echo "Starting GPU server..."
+        python /kernelblaster/scripts/check_runtime_versions.py --require-gpu
         execute_command python -m src.kernelblaster.servers.gpu --port 2002
         ;;
     "api")

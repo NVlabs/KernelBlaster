@@ -12,6 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""汇总 KernelBlaster 优化 Agent 的公开类型，供工作流统一导入。"""
+
 from .opt_ncu_rl import RLNCUAgent
 from .utils.error import FeedbackError
 from .feedback import FeedbackConfig, FeedbackError

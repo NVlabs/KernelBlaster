@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "name": "rmsnorm-case-study",
+  "description": "Deep optimization case study for RMSNorm with Sum Reduction as a gated fallback.",
+  "subset": "level1",
+  "precision": "fp16",
+  "defaults": {
+    "rollouts": 8,
+    "steps": 5
+  },
+  "tasks": [
+    {"number": 36, "id": "036", "name": "RMSNorm", "category": "normalization", "path": "data/kernelbench-cuda/level1/036_RMSNorm"}
+  ],
+  "case_study": {
+    "primary_task": "036",
+    "fallback_task": "047",
+    "fallback_after_day": 9,
+    "minimum_verified_improvement_percent": 5.0,
+    "stages": [
+      {"version": "V0", "hypothesis": "Measure and profile the unmodified upstream implementation."},
+      {"version": "V1", "hypothesis": "Remap threads for coalesced access and remove unnecessary cross-thread reduction."},
+      {"version": "V2", "hypothesis": "Use half2 vectorization with an explicit tail path."},
+      {"version": "V3", "hypothesis": "Tune block size, work per thread, and rsqrtf usage."}
+    ]
+  }
+}

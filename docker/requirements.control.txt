@@ -1,0 +1,7 @@
+# Minimal CPU-only runtime for the PR-02 control health/readiness boundary.
+# LLM provider packages, PyTorch, and CUDA stay out of this image until a
+# control-plane Job API actually needs them.
+fastapi>=0.115,<1
+loguru==0.7.3
+python-dotenv>=1,<2
+uvicorn>=0.34,<1

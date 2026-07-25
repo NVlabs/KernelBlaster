@@ -1,0 +1,11 @@
+task_id,name,category,status,speedup,candidate,provenance,baseline_median_us,candidate_median_us,all_sessions_not_slower,failure_categories
+004,Matrix-vector multiplication,memory,baseline_only,,,,17861.6313934,,,{}
+007,Small-K matrix multiplication,matmul,baseline_only,,,,9113.59977722,,,{}
+019,ReLU,elementwise,baseline_unstable,,,,9.520639777185,,,{}
+023,Softmax,normalization,baseline_unstable,,,,12.7002596855,,,{}
+026,GELU,elementwise,baseline_only,,,,9.087999972205,,,{}
+036,RMSNorm,normalization,verified_improved,49.34767666277694,v3c,manual_case_study,29359.104156499998,594.944000244,True,{}
+040,LayerNorm,normalization,baseline_only,,,,14766.0799026,,,{}
+047,Sum reduction,reduction,baseline_unstable,,,,22.6638365765,,,{}
+088,MinGPT GELU,elementwise,baseline_only,,,,27.7310255412,,,{}
+095,Cross entropy loss,loss,baseline_only,,,,488.106648127,,,{}

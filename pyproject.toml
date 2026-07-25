@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kernelblaster"
+version = "0.2.0"
+description = "Correctness-first CUDA kernel optimization research prototype"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+dependencies = [
+  "aiohttp>=3.11,<4",
+  "langgraph==0.2.68",
+  "loguru==0.7.3",
+  "pandas>=2.2,<3",
+  "python-dotenv>=1,<2",
+  "requests>=2.32,<3",
+]
+
+[project.optional-dependencies]
+server = [
+  "fastapi>=0.115,<1",
+  "pydantic>=2.10,<3",
+  "psutil>=6,<8",
+  "python-multipart==0.0.20",
+  "uvicorn[standard]>=0.34,<1",
+]
+llm = [
+  "azure-ai-inference==1.0.0b9",
+  "langchain==0.3.24",
+  "langchain-chroma==0.2.3",
+  "langchain-community==0.3.23",
+  "langchain-huggingface==0.1.2",
+  "openai==1.77.0",
+]
+local-llm = [
+  "accelerate>=0.30,<2",
+  "bitsandbytes>=0.43,<1",
+  "sentencepiece>=0.1.99,<1",
+  "transformers==4.51.3",
+]
+gpu = ["torch>=2.5,<3"]
+dev = [
+  "pytest>=8,<9",
+  "pytest-asyncio==0.26.0",
+  "ruff>=0.12,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src.kernelblaster*"]
+namespaces = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+  "gpu: requires an NVIDIA GPU and CUDA toolchain",
+  "live_api: sends a bounded request to a configured external API",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+exclude = ["artifacts", "data/kernelbench-cuda"]
+
+[tool.ruff.lint]
+# Start with syntax/undefined-name failures so legacy style debt does not make CI ceremonial.
+select = ["E9", "F63", "F7", "F82"]

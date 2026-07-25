@@ -1,0 +1,4 @@
+# Generated benchmark exports retain their published CRLF bytes for SHA256 parity.
+*.csv whitespace=cr-at-eol
+artifacts/portfolio-v1.0/SHA256SUMS.json whitespace=cr-at-eol
+artifacts/portfolio-v2.0/** text eol=lf

@@ -1,0 +1,127 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: kernelblaster
+
+services:
+  control:
+    image: local/kernelblaster-control:pr03-${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: control
+    init: true
+    working_dir: /opt/kernelblaster
+    # This is the sole service that receives the external LLM configuration.
+    env_file:
+      - ${KERNELBLASTER_CONTROL_ENV_FILE:?set KERNELBLASTER_CONTROL_ENV_FILE to an external control env file}
+    environment:
+      KERNELBLASTER_CONTROL_TOKEN: ${KERNELBLASTER_CONTROL_TOKEN:?set a control token}
+      KERNELBLASTER_WORKER_TOKEN: ${KERNELBLASTER_WORKER_TOKEN:?set a distinct worker token}
+      GPU_SERVER_URL_RTX3080: http://gpu-supervisor:2002
+      KERNELBLASTER_STATE_DIR: /state
+    command: ["python", "-m", "src.kernelblaster.servers.control", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      gpu-supervisor:
+        condition: service_healthy
+    networks: [control-plane, worker-plane]
+    volumes:
+      - ${KERNELBLASTER_STATE_HOST_DIR:-./out/state}:/state
+    healthcheck:
+      test:
+        ["CMD-SHELL", "python -c \"import os, urllib.request; request = urllib.request.Request('http://127.0.0.1:8000/health', headers={'Authorization': 'Bearer ' + os.environ['KERNELBLASTER_CONTROL_TOKEN']}); urllib.request.urlopen(request, timeout=3).read()\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  gpu-supervisor:
+    image: local/kernelblaster-gpu-supervisor:cuda12.8-${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: gpu-supervisor
+    gpus: all
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,exec,nosuid,nodev,size=2g
+    environment:
+      KERNELBLASTER_WORKER_TOKEN: ${KERNELBLASTER_WORKER_TOKEN:?set a distinct worker token}
+      KERNELBLASTER_MAX_GPU_BINARY_BYTES: ${KERNELBLASTER_MAX_GPU_BINARY_BYTES:-268435456}
+      TORCH_CUDA_ARCH_LIST: "8.6"
+      CUDAARCHS: "86"
+      HOME: /tmp/home
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 16g
+    networks: [worker-plane]
+    healthcheck:
+      test:
+        ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:2002/health', timeout=3).read()\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
+  dev:
+    image: local/kernelblaster-dev:cuda12.8-${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: dev
+    profiles: [dev]
+    gpus: all
+    shm_size: 8gb
+    init: true
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+    environment:
+      HOME: /tmp/home
+      HF_HOME: /cache/huggingface
+      TORCH_HOME: /cache/torch
+      TRITON_CACHE_DIR: /cache/triton
+      TORCH_CUDA_ARCH_LIST: "8.6"
+      CMAKE_CUDA_ARCHITECTURES: "86"
+      CUDAARCHS: "86"
+      PYTHONPATH: /workspace
+    volumes:
+      - .:/workspace
+      - ../../datasets/KernelBlaster:/data:ro
+      - ../../checkpoints/KernelBlaster:/checkpoints
+      - ../../runs/KernelBlaster:/runs
+      - ../../caches/huggingface:/cache/huggingface
+      - ../../caches/torch:/cache/torch
+      - ../../caches/triton:/cache/triton
+    command: bash
+
+  smoke:
+    image: local/kernelblaster-control:pr03-${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: control
+    profiles: [smoke]
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=16m
+    environment:
+      KERNELBLASTER_CONTROL_TOKEN: ${KERNELBLASTER_CONTROL_TOKEN:?set a control token}
+      KERNELBLASTER_WORKER_TOKEN: ${KERNELBLASTER_WORKER_TOKEN:?set a distinct worker token}
+    depends_on:
+      control:
+        condition: service_healthy
+      gpu-supervisor:
+        condition: service_healthy
+    networks: [control-plane, worker-plane]
+    command: ["python", "scripts/compose_smoke.py"]
+
+networks:
+  control-plane: {}
+  worker-plane:
+    internal: true

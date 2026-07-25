@@ -1,0 +1,2 @@
+requests_started,requests_completed,requests_failed,retries,prompt_tokens,completion_tokens,total_tokens,estimated_cost_usd
+1,0,1,0,0,0,0,0.0

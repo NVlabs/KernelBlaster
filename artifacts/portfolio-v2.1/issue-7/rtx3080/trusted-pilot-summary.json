@@ -1,0 +1,57 @@
+{
+  "schema_version": "2.0",
+  "issue": 7,
+  "run_id": "trusted-20260722T135530Z",
+  "base_commit": "4a8fb35712c12e9619e4603cbe7d2620097282ba",
+  "working_tree_validation": true,
+  "target": {
+    "gpu": "NVIDIA GeForce RTX 3080",
+    "compute_capability": "8.6",
+    "model": "gpt-5.6-sol"
+  },
+  "gates": {
+    "runtime": "passed",
+    "compile_correctness_events": "passed",
+    "ncu_probe": "events_only: ERR_NVGPUCTRPERM",
+    "api_smoke": "failed: HTTP 401 AuthenticationError",
+    "agent_pilot": "not_run"
+  },
+  "events_discovery": {
+    "task_id": "036",
+    "stable": true,
+    "sessions": 3,
+    "session_speedups": [
+      51.46130833007587,
+      51.31738786487847,
+      51.49316507706571
+    ],
+    "median_speedup": 51.439318709682965,
+    "performance_claim_allowed": false,
+    "reason": "discovery phase is diagnostic only"
+  },
+  "api_smoke": {
+    "requests_started": 1,
+    "requests_completed": 0,
+    "requests_failed": 1,
+    "retries": 0,
+    "completion_token_limit": 64,
+    "reasoning_effort": "none",
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "failure_type": "AuthenticationError",
+    "status_code": 401
+  },
+  "unpublished_source_evidence_sha256": {
+    "preflight.json": "8848f02a892d72815c03e7537aaa51ba2ab9016b0efbf04510742a36831bb109",
+    "api-smoke/run_manifest.json": "4f608bc6bf1e7e4da4038dff9977f6dc3ff2e1dd2b3088710e48eb8c982eb98a",
+    "api-smoke/events.jsonl": "33e690683c45561882f9751c590c729e7c95ab9bac2da136ec4643c30c5ea880",
+    "api-smoke/summary.json": "52c3f0961508e5182fbbcdcfff49423c40cd6dc926a5f0aa636a7e4887673558",
+    "events-discovery/suite_summary.json": "192d3ca96e872e21d25048262b95e6daf7e47249de5a87c52dd1f19e5523ca9f",
+    "events-discovery/036/summary.json": "d92890054b388b4fc2c8fced2373dab09ec06a5a84e4af60ddac8112192262e7"
+  },
+  "secrets_published": false,
+  "raw_logs_published": false,
+  "issue_close_allowed": false,
+  "next_gate": "provide a valid OpenAI credential, then rerun the same one-request smoke"
+}

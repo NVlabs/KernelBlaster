@@ -141,6 +141,10 @@ mkdir -p "out/${DATASET}/${PRECISION}/${EXPERIMENT_NAME}"
 # Export environment variables
 export MODEL="$MODEL"
 export DATASET="$DATASET"
+if [ -z "${KERNELBLASTER_WORKER_TOKEN:-}" ]; then
+    KERNELBLASTER_WORKER_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+fi
+export KERNELBLASTER_WORKER_TOKEN
 
 # Start a shared GPU server (if it exists)
 GPU_STARTER_PID=""

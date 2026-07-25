@@ -1,0 +1,202 @@
+{
+  "schema_version": "2.0",
+  "issue": 8,
+  "run_id": "ncu-preflight-20260722",
+  "base_commit": "4a8fb35712c12e9619e4603cbe7d2620097282ba",
+  "working_tree_validation": true,
+  "environment": {
+    "gpu": "NVIDIA GeForce RTX 3080",
+    "compute_capability": "8.6",
+    "windows_driver": "591.86",
+    "wsl": "2.6.2",
+    "docker_desktop": "4.54.0",
+    "container_ncu": "2025.1.0.0",
+    "windows_ncu": "2026.2.1",
+    "container_image": "kernelblaster-gpu@sha256:ae4d23986d0f8778103436b10a58d88ba2ae64faf87650d2b70f594f868ab487"
+  },
+  "windows_native_control": {
+    "status": "passed",
+    "requested_section_ids": ["SpeedOfLight", "LaunchStats", "Occupancy"],
+    "observed_section_names": [
+      "GPU Speed Of Light Throughput",
+      "Launch Statistics",
+      "Occupancy",
+      "GPU and Memory Workload Distribution",
+      "SpeedOfLight"
+    ],
+    "metrics_by_section": {
+      "GPU Speed Of Light Throughput": [
+        "DRAM Frequency",
+        "SM Frequency",
+        "Elapsed Cycles",
+        "Memory Throughput",
+        "DRAM Throughput",
+        "Duration",
+        "L1/TEX Cache Throughput",
+        "L2 Cache Throughput",
+        "SM Active Cycles",
+        "Compute (SM) Throughput"
+      ],
+      "Launch Statistics": [
+        "Block Size",
+        "Function Cache Configuration",
+        "Grid Size",
+        "Registers Per Thread",
+        "Shared Memory Configuration Size",
+        "Driver Shared Memory Per Block",
+        "Dynamic Shared Memory Per Block",
+        "Static Shared Memory Per Block",
+        "# SMs",
+        "Stack Size",
+        "Threads",
+        "# TPCs",
+        "Enabled TPC IDs",
+        "Uses Green Context",
+        "Waves Per SM"
+      ],
+      "Occupancy": [
+        "Block Limit SM",
+        "Block Limit Registers",
+        "Block Limit Shared Mem",
+        "Block Limit Warps",
+        "Theoretical Active Warps per SM",
+        "Theoretical Occupancy",
+        "Achieved Occupancy",
+        "Achieved Active Warps Per SM"
+      ],
+      "GPU and Memory Workload Distribution": [
+        "Average DRAM Active Cycles",
+        "Total DRAM Elapsed Cycles",
+        "Average L1 Active Cycles",
+        "Total L1 Elapsed Cycles",
+        "Average L2 Active Cycles",
+        "Total L2 Elapsed Cycles",
+        "Average SM Active Cycles",
+        "Total SM Elapsed Cycles",
+        "Average SMSP Active Cycles",
+        "Total SMSP Elapsed Cycles"
+      ]
+    },
+    "metric_count": 43,
+    "report_sha256": "1d132464c451a249453faa02449042daa12d796ba818564860c268936244584b",
+    "report_size_bytes": 86624,
+    "artifacts": {
+      "report": {
+        "path": "windows-native-control/vector_add.ncu-rep",
+        "size_bytes": 86624,
+        "sha256": "1d132464c451a249453faa02449042daa12d796ba818564860c268936244584b"
+      },
+      "details_csv": {
+        "path": "windows-native-control/details.csv",
+        "size_bytes": 11004,
+        "sha256": "02854739d8f4338007d50bc5fc2dc7269d41baf28c6b59f3a6d2318d72286903"
+      },
+      "raw_csv": {
+        "path": "windows-native-control/raw.csv",
+        "size_bytes": 31867,
+        "sha256": "99b02112b8192edd5e553c1c5b43b192b333dde26742c900b484ea98d0954789"
+      }
+    }
+  },
+  "nsys_smoke": {
+    "status": "passed",
+    "tool_version": "2024.6.2",
+    "trace": ["cuda"],
+    "wsl_config": {
+      "CuptiUseRawGpuTimestamps": false,
+      "reason": "NVIDIA-documented WSL timestamp-conversion fallback",
+      "source": "https://archive.docs.nvidia.com/nsight-systems/2025.2/ReleaseNotes/index.html"
+    },
+    "security": {
+      "network": "none",
+      "cap_drop": ["ALL"],
+      "cap_add": []
+    },
+    "captured_kernel": {
+      "name": "rmsnorm_half2_rsqrt(__half2 *, const __half2 *, long, long, long, float)",
+      "instances": 1
+    },
+    "performance_claim_allowed": false,
+    "artifacts": {
+      "report": {
+        "path": "nsys-smoke/rmsnorm-smoke.nsys-rep",
+        "size_bytes": 46186,
+        "sha256": "e21164889181c65faef2f61d71b17c0c6cefac0e7446332dc5a8482ce5af1377"
+      },
+      "kernel_summary_csv": {
+        "path": "nsys-smoke/cuda_gpu_kern_sum.csv",
+        "size_bytes": 5558,
+        "sha256": "9f33397f833eac846a6365593e96d065b67f87d8e1973562d43cbb527210d9b8"
+      }
+    }
+  },
+  "linux_attempts": [
+    {
+      "boundary": "docker",
+      "identity": "uid1000",
+      "capabilities": [],
+      "status": "blocked",
+      "reason_code": "ERR_NVGPUCTRPERM",
+      "evidence_persisted": true,
+      "evidence": {
+        "path": "linux-blockers/trusted-pilot-ncu-probe.log",
+        "size_bytes": 2087,
+        "sha256": "3bc035eba9a60c023538d02d7d1a7de5f90e426d21219cbc97d8cff7fec78349"
+      }
+    },
+    {
+      "boundary": "docker",
+      "identity": "root",
+      "capabilities": ["SYS_ADMIN"],
+      "status": "blocked",
+      "reason_code": "ERR_NVGPUCTRPERM",
+      "evidence_persisted": false
+    },
+    {
+      "boundary": "docker_after_wsl_and_desktop_restart",
+      "identity": "uid1000",
+      "capabilities": [],
+      "status": "blocked",
+      "reason_code": "ERR_NVGPUCTRPERM",
+      "evidence_persisted": false
+    },
+    {
+      "boundary": "docker_after_wsl_and_desktop_restart",
+      "identity": "root",
+      "capabilities": ["SYS_ADMIN"],
+      "status": "blocked",
+      "reason_code": "ERR_NVGPUCTRPERM",
+      "evidence_persisted": false
+    },
+    {
+      "boundary": "wsl_direct",
+      "identity": "uid1000",
+      "capabilities": [],
+      "status": "blocked",
+      "reason_code": "ERR_NVGPUCTRPERM",
+      "evidence_persisted": false
+    },
+    {
+      "boundary": "wsl_direct",
+      "identity": "root",
+      "capabilities": [],
+      "status": "blocked",
+      "reason_code": "ERR_NVGPUCTRPERM",
+      "evidence_persisted": false
+    }
+  ],
+  "classification": "windows_to_wsl_performance_counter_exposure",
+  "repository_ncu_parser": {
+    "status": "passed",
+    "input": "windows-native-control/details.csv",
+    "parse_valid": true,
+    "metric_count": 43,
+    "missing_section_ids": [],
+    "missing_metrics_by_section": {}
+  },
+  "api_requests": 0,
+  "tokens": 0,
+  "secrets_present_in_profiler": false,
+  "issue_close_allowed": false,
+  "next_gate": "obtain an authorized WSL or A100/L40S profiler worker and rerun the three-section probe"
+}

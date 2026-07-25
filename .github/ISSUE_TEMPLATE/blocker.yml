@@ -1,0 +1,32 @@
+name: Research prototype blocker
+description: Track a reproducibility, correctness, performance, or security blocker.
+title: "[P1] "
+labels: ["triage"]
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: ["P0 — correctness/security", "P1 — blocks validation", "P2 — hardening"]
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: ["Agent outcome/RL", "CUDA correctness", "Performance evidence", "Profiler", "GPU worker security", "CI/release", "Documentation"]
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and reproduction
+      description: Include hardware, versions, commands, logs, and expected versus observed behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+    validations:
+      required: true

@@ -1,0 +1,8 @@
+run_id,task_id,kernel,candidate,provenance,speedup,formal_valid,comparison_scope,stable,all_sessions_not_slower,ncu_status,ncu_metric_count
+20260719T065502Z,036,RMSNorm,v3a,manual_case_study,47.77824587288403,True,upstream_baseline,True,True,,0
+20260719T070559Z,036,RMSNorm,v3c,manual_case_study,49.34767666277694,True,upstream_baseline,True,True,,0
+20260719T064401Z,036,RMSNorm,v1,manual_case_study,47.66808997313564,True,upstream_baseline,True,True,,0
+20260719T070048Z,036,RMSNorm,v3b,manual_case_study,46.74198900893308,True,upstream_baseline,True,True,,0
+20260719T064947Z,036,RMSNorm,v2,manual_case_study,48.00168974148785,True,upstream_baseline,True,True,,0
+20260719T071124Z,036,RMSNorm,v3c,manual_case_study,1.0068846338181747,True,variant_head_to_head,True,True,,0
+20260719T071505Z,036,RMSNorm,self,runner_validation,1.0,True,variant_head_to_head,True,True,,0
