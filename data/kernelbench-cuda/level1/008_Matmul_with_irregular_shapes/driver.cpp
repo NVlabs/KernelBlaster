@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #include <torch/torch.h>
+#include <iostream>
 #include "cuda_model.cuh"
 
 // Declaration for your CUDA implementation
