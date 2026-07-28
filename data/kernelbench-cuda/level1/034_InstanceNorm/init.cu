@@ -86,6 +86,12 @@ __global__ void instance_norm2d_affine_fp16_kernel(
     __shared__ float mean_shared;
     __shared__ float var_shared;
 
+    if (tid == 0) {
+        mean_shared = 0.0f;
+        var_shared = 0.0f;
+    }
+    __syncthreads();
+
     // Step 1: compute mean and variance (accum in fp32)
     float sum = 0.0f, sumsq = 0.0f;
 
