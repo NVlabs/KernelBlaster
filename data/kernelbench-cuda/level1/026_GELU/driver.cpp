@@ -42,7 +42,7 @@ int main() {
     torch::Tensor input = torch::randn({batch_size, dim}, torch::TensorOptions().dtype(dtype).device(device));
 
     // Reference output using libtorch GELU
-    torch::Tensor ref_output = torch::nn::functional::gelu(input);
+    torch::Tensor ref_output = torch::nn::functional::gelu(input, torch::nn::functional::GELUFuncOptions().approximate("tanh"));
 
     // Allocate output tensor for GPU kernel (float16, CUDA)
     torch::Tensor output = torch::empty_like(ref_output);
