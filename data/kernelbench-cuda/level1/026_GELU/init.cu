@@ -74,7 +74,6 @@ __global__ void gelu_fp16_kernel(
 }
 
 // Host launcher: C-compatible
-extern "C"
 void launch_gpu_implementation(
     void* output,         // half* output, shape: [batch_size, dim]
     void* input,          // half* input, shape: [batch_size, dim]
