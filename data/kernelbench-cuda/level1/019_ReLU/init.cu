@@ -41,7 +41,7 @@ __global__ void relu_fp16_kernel(
     half2* output_h2 = (half2*)(output + idx);
 
     // For the last few elements, may need to process scalar fallback
-    int num_vec = min(2, (int)((total_elements - idx + 1) / 2));
+    int num_vec = min(2, (int)((total_elements - idx) / 2));
 
 #pragma unroll
     for (int i = 0; i < num_vec; ++i) {
