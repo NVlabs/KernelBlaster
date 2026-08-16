@@ -35,7 +35,7 @@ __global__ void hardsigmoid_fp16_kernel(
     // HardSigmoid: y = clamp(x * 0.2 + 0.5, 0, 1)
     // Use float for intermediate computation to avoid fp16 rounding errors
     float x = __half2float(input[idx]);
-    float y = x * 0.2f + 0.5f;
+    float y = x * (1.0f / 6.0f) + 0.5f;
     y = fminf(fmaxf(y, 0.0f), 1.0f);
 
     output[idx] = __float2half_rn(y);
