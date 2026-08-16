@@ -34,7 +34,7 @@ class Dataset:
             data_dir (str): Path to the directory containing the kernelbench dataset
         """
         self.data_dir = Path(data_dir)
-        self.data: list[dict[str]] = []
+        self.data: list[dict[str, Any]] = []
 
         # train, test split
         self.splits = {"train": 0.5, "test": 0.5}
@@ -43,7 +43,7 @@ class Dataset:
         """Return the number of samples in the dataset."""
         return len(self.data)
 
-    def __getitem__(self, idx: int) -> dict[str]:
+    def __getitem__(self, idx: int) -> dict[str, Any]:
         """Get a sample from the dataset by index."""
         return self.data[idx]
 
@@ -56,7 +56,7 @@ class Dataset:
         assert isinstance(dataset_len, int)
         return str(id).zfill(len(str(dataset_len)))
 
-    def make_sample(self, id: str, reference_code: str, **kwargs) -> dict[str]:
+    def make_sample(self, id: str, reference_code: str, **kwargs) -> dict[str, Any]:
         assert isinstance(id, str)
         assert isinstance(reference_code, str)
         return {"id": id, "reference_code": reference_code, **kwargs}
