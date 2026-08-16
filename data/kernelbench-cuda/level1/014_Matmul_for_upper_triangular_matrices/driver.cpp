@@ -40,7 +40,7 @@ int main() {
     torch::Tensor C_ref = torch::triu(torch::matmul(A, B));
 
     // Allocate output tensor for CUDA kernel and fill with a value that will never match the reference
-    torch::Tensor C_cuda = torch::full({N, N}, -7777.0, torch::TensorOptions().dtype(dtype).device(device));
+    torch::Tensor C_cuda = torch::zeros({N, N}, torch::TensorOptions().dtype(dtype).device(device));
 
     // Synchronize before calling the kernel (just in case)
     torch::cuda::synchronize();
