@@ -74,4 +74,11 @@ class Dataset:
         random.seed(SEED)
         permutation = list(range(len(self.data)))
         random.shuffle(permutation)
-        return permutation[: int(len(self.data) * self.splits[split])]
+        split_sizes = {name: int(len(self.data) * frac) for name, frac in self.splits.items()}
+        start = 0
+        for name in self.splits:
+            size = split_sizes[name]
+            if name == split:
+                return permutation[start : start + size]
+            start += size
+        return []
