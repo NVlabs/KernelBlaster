@@ -60,8 +60,8 @@ __global__ void leaky_relu_fp16_kernel(
     }
 
     // Handle remaining elements (tail)
-    int base = (total_elems / (vec_size * blockDim.x * gridDim.x)) * (vec_size * blockDim.x * gridDim.x);
-    for (int i = idx; i < total_elems && i < base + blockDim.x * gridDim.x * vec_size; ++i) {
+    int tail_start = (total_elems / (vec_size * blockDim.x * gridDim.x)) * (vec_size * blockDim.x * gridDim.x);
+    for (int i = tail_start + idx; i < total_elems; i += blockDim.x * gridDim.x) {
         float x = __half2float(in[i]);
         float y = x >= 0.f ? x : x * negative_slope;
         out[i] = __float2half_rn(y);
